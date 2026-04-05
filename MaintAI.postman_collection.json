@@ -1,0 +1,386 @@
+{
+  "info": {
+    "name": "MaintAI Backend",
+    "_postman_id": "d2f8c8d2-8c49-4a4e-9f0b-1c3f1a7b8e11",
+    "description": "Postman collection for MaintAI backend APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "feedbackId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": [""]
+        }
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signup Engineer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engineer One\",\n  \"email\": \"engineer@test.com\",\n  \"password\": \"123456\",\n  \"role\": \"engineer\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Signup Manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Manager One\",\n  \"email\": \"manager@test.com\",\n  \"password\": \"123456\",\n  \"role\": \"manager\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "signup"]
+            }
+          }
+        },
+        {
+          "name": "Login Engineer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"engineer@test.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login Manager",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"manager@test.com\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "Create New Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hydraulic press overheating\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          }
+        },
+        {
+          "name": "Continue Chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Cooling system is working fine\",\n  \"sessionId\": \"{{sessionId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/chat",
+              "host": ["{{baseUrl}}"],
+              "path": ["chat"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "item": [
+        {
+          "name": "Get All Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["sessions"]
+            }
+          }
+        },
+        {
+          "name": "Get Session Messages",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{sessionId}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": ["sessions", "{{sessionId}}", "messages"]
+            }
+          }
+        },
+        {
+          "name": "Rename Session",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hydraulic Press Issue\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sessions", "{{sessionId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Session",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["sessions", "{{sessionId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "Submit Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sessionId\": \"{{sessionId}}\",\n  \"question\": \"Hydraulic press overheating\",\n  \"answer\": \"AI answer here...\",\n  \"engineerFeedback\": \"correct\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/feedback",
+              "host": ["{{baseUrl}}"],
+              "path": ["feedback"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Manager",
+      "item": [
+        {
+          "name": "Manager Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["manager", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Feedback",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/manager/feedback/pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["manager", "feedback", "pending"]
+            }
+          }
+        },
+        {
+          "name": "Approve Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"managerStatus\": \"approved\",\n  \"managerComment\": \"Valid solution\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/manager/feedback/{{feedbackId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["manager", "feedback", "{{feedbackId}}"]
+            }
+          }
+        },
+        {
+          "name": "Reject Feedback",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"managerStatus\": \"rejected\",\n  \"managerComment\": \"Too generic\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/manager/feedback/{{feedbackId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["manager", "feedback", "{{feedbackId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

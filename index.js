@@ -9,6 +9,7 @@ import feedbackRoutes from "./routes/feedback.routes.js";
 const app = express();
 
 app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
 // Connect database
 connectDB();
@@ -17,8 +18,10 @@ connectDB();
 app.get("/", (req, res) => {
   res.send("Server running 🚀");
 });
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 // API routes
