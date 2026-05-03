@@ -16,12 +16,14 @@ export const chatHandler = async (req, res) => {
     let existingSession = await Session.findOne({
       sessionId: currentSessionId,
       userId: req.user._id,
+      department: req.user.department,
     });
 
     if (!existingSession) {
       existingSession = await Session.create({
         sessionId: currentSessionId,
         userId: req.user._id,
+        department: req.user.department,
         title: message.length > 40 ? message.substring(0, 40) + "..." : message,
       });
     }

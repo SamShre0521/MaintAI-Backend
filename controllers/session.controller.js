@@ -48,7 +48,7 @@ export const renameSession = async (req, res) => {
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId: req.user._id },
       { title: title.trim() },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updatedSession) {

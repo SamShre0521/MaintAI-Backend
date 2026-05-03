@@ -12,21 +12,21 @@ router.get(
   "/manager/dashboard",
   protect,
   authorizeRoles("manager"),
-  getManagerDashboard
+  getManagerDashboard,
 );
 
 router.get(
   "/manager/feedback/pending",
   protect,
   authorizeRoles("manager"),
-  getPendingFeedback
+  getPendingFeedback,
 );
 
 router.patch(
   "/manager/feedback/:id",
   protect,
   authorizeRoles("manager"),
-  reviewFeedback
+  reviewFeedback,
 );
 
 export default router;

@@ -16,6 +16,7 @@ export const submitFeedback = async (req, res) => {
       question,
       answer,
       engineerFeedback,
+      department: req.user.department,
     });
 
     res.status(201).json({

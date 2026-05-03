@@ -33,8 +33,13 @@ const feedbackSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    department: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Feedback = mongoose.model("Feedback", feedbackSchema);

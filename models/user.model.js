@@ -23,8 +23,13 @@ const userSchema = new mongoose.Schema(
       enum: ["engineer", "manager"],
       default: "engineer",
     },
+    department: {
+      type: String,
+      required: true,
+      trim: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const User = mongoose.model("User", userSchema);

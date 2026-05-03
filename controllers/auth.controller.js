@@ -15,13 +15,13 @@ const generateToken = (user) => {
 };
 
 export const signup = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, department } = req.body;
 
   try {
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !department) {
       return res
         .status(400)
-        .json({ error: "Name, email and password are required" });
+        .json({ error: "Name, email, password and department are required" });
     }
 
     const existingUser = await User.findOne({ email });
@@ -37,6 +37,7 @@ export const signup = async (req, res) => {
       email,
       password: hashedPassword,
       role: role || "engineer",
+      department
     });
 
     const token = generateToken(user);
@@ -49,6 +50,7 @@ export const signup = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        department: user.department
       },
     });
   } catch (error) {
@@ -89,6 +91,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        department: user.department
       },
     });
   } catch (error) {
