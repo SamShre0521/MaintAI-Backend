@@ -38,6 +38,11 @@ const feedbackSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
   },
   { timestamps: true },
 );

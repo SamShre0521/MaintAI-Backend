@@ -50,6 +50,7 @@ export const reviewFeedback = async (req, res) => {
       {
         managerStatus,
         managerComment: managerComment || "",
+        approvedBy: req.user._id,
       },
       { returnDocument: "after" },
     );
