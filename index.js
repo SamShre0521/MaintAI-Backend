@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth.routes.js";
 import managerRoutes from "./routes/manager.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import knowledgeBaseRoutes from "./routes/knowledgeBase.routes.js";
+import machineRoutes from "./routes/machine.routes.js";
 
 const app = express();
 
@@ -32,3 +33,4 @@ app.use("/api", sessionRoutes);
 app.use("/api", managerRoutes);
 app.use("/api", feedbackRoutes);
 app.use("/api", knowledgeBaseRoutes);
+app.use("/api", machineRoutes);

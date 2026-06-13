@@ -1,0 +1,37 @@
+import mongoose from "mongoose";
+
+const machineSchema = new mongoose.Schema(
+  {
+    machineName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    specifications: {
+      type: String,
+      required: true,
+    },
+    department: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    addedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    files: [
+      {
+        originalName: String,
+        mimeType: String,
+        size: Number,
+      },
+    ],
+  },
+  { timestamps: true }
+);
+
+const Machine = mongoose.model("Machine", machineSchema);
+
+export default Machine;

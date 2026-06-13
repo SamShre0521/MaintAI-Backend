@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import Message from "../models/message.model.js";
 import Session from "../models/session.model.js";
 import { generateResponse } from "../services/openai.service.js";
+import { searchVectorDB } from "../services/search.service.js";
 
 export const chatHandler = async (req, res) => {
   const { message, sessionId } = req.body;
@@ -10,7 +11,7 @@ export const chatHandler = async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
     }
-
+    console.log("User message:", message);
     const currentSessionId = sessionId || uuidv4();
 
     let existingSession = await Session.findOne({
@@ -43,7 +44,49 @@ export const chatHandler = async (req, res) => {
       content: chat.content,
     }));
 
-    const reply = await generateResponse(formattedChats);
+    const relevantKnowledge = await searchVectorDB(
+      message,
+      req.user.department,
+    );
+
+    console.log("RAG results:", relevantKnowledge);
+
+    let contextText = "";
+
+    if (relevantKnowledge.length > 0) {
+      contextText = relevantKnowledge
+        .map(
+          (item, index) =>
+            `Context ${index + 1}:\nQuestion: ${item.question}\nAnswer: ${item.answer}`,
+        )
+        .join("\n\n");
+    }
+
+    console.log("Context:", contextText);
+
+    const ragChats = [
+      {
+        role: "system",
+        content: `
+You are a senior manufacturing engineer.
+
+Use the following context if relevant:
+
+${contextText}
+
+If context is useful:
+- prioritize it
+- give practical solutions
+
+If not:
+- answer normally
+`,
+      },
+      ...formattedChats,
+    ];
+
+    // const reply = await generateResponse(formattedChats);
+    const reply = await generateResponse(ragChats);
 
     await Message.create({
       sessionId: currentSessionId,
@@ -53,7 +96,7 @@ export const chatHandler = async (req, res) => {
 
     await Session.findOneAndUpdate(
       { sessionId: currentSessionId, userId: req.user._id },
-      { $set: { updatedAt: new Date() } }
+      { $set: { updatedAt: new Date() } },
     );
 
     res.json({

@@ -23,6 +23,9 @@ export const getPendingFeedback = async (req, res) => {
       .populate("userId", "name email role")
       .sort({ createdAt: -1 });
 
+    console.log("User : " + req.user);
+    console.log("Feedback For Manager : " + feedbacks);
+
     res.json({ feedbacks });
   } catch (error) {
     console.error("Get pending feedback error:", error);
