@@ -9,6 +9,19 @@ import knowledgeBaseRoutes from "./routes/knowledgeBase.routes.js";
 import machineRoutes from "./routes/machine.routes.js";
 
 const app = express();
+const cors = require("cors");
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://maintai-backend-uat.onrender.com",
+    ],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 app.use(express.json());
 const PORT = process.env.PORT || 3000;
@@ -20,7 +33,6 @@ connectDB();
 app.get("/", (req, res) => {
   res.send("Server running 🚀");
 });
-
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
