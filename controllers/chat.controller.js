@@ -5,7 +5,7 @@ import { generateResponse } from "../services/openai.service.js";
 import { searchVectorDB } from "../services/search.service.js";
 
 export const chatHandler = async (req, res) => {
-  const { message, sessionId } = req.body;
+  const { message, sessionId, machineId } = req.body;
 
   try {
     if (!message) {
@@ -25,6 +25,7 @@ export const chatHandler = async (req, res) => {
         sessionId: currentSessionId,
         userId: req.user._id,
         department: req.user.department,
+        machineId: machineId || null,
         title: message.length > 40 ? message.substring(0, 40) + "..." : message,
       });
     }
@@ -47,6 +48,7 @@ export const chatHandler = async (req, res) => {
     const relevantKnowledge = await searchVectorDB(
       message,
       req.user.department,
+       machineId || existingSession.machineId
     );
 
     console.log("RAG results:", relevantKnowledge);
@@ -55,10 +57,19 @@ export const chatHandler = async (req, res) => {
 
     if (relevantKnowledge.length > 0) {
       contextText = relevantKnowledge
-        .map(
-          (item, index) =>
-            `Context ${index + 1}:\nQuestion: ${item.question}\nAnswer: ${item.answer}`,
-        )
+        .map((item, index) => {
+          if (item.type === "machine_document") {
+            return `Context ${index + 1}:
+Source File: ${item.fileName}
+Machine: ${item.machineName}
+Text:
+${item.text}`;
+          }
+
+          return `Context ${index + 1}:
+Question: ${item.question}
+Answer: ${item.answer}`;
+        })
         .join("\n\n");
     }
 

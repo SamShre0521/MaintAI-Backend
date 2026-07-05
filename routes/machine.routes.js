@@ -18,7 +18,7 @@ router.post(
   addMachine
 );
 
-router.get("/machines", protect, authorizeRoles("manager"), getMachines);
+router.get("/machines", protect, authorizeRoles("engineer","manager"), getMachines);
 
 router.get("/machines/:id", protect, authorizeRoles("manager"), getMachineById);
 

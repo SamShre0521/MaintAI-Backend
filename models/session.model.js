@@ -21,6 +21,11 @@ const sessionSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    machineId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Machine",
+      default: null,
+    },
   },
   { timestamps: true },
 );

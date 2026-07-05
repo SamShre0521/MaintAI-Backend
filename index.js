@@ -7,9 +7,10 @@ import managerRoutes from "./routes/manager.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import knowledgeBaseRoutes from "./routes/knowledgeBase.routes.js";
 import machineRoutes from "./routes/machine.routes.js";
+import cors from "cors";
 
 const app = express();
-const cors = require("cors");
+
 
 app.use(
   cors({

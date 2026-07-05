@@ -26,10 +26,23 @@ const machineSchema = new mongoose.Schema(
         originalName: String,
         mimeType: String,
         size: Number,
+        processingStatus: {
+          type: String,
+          enum: ["pending", "processing", "completed", "failed"],
+          default: "pending",
+        },
+        errorMessage: {
+          type: String,
+          default: "",
+        },
+        uploadedAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const Machine = mongoose.model("Machine", machineSchema);

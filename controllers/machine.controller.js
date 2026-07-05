@@ -1,4 +1,5 @@
 import Machine from "../models/machine.model.js";
+import { processMachineFiles } from "../services/machineDocument.service.js";
 
 export const addMachine = async (req, res) => {
   const { machineName, specifications } = req.body;
@@ -23,6 +24,12 @@ export const addMachine = async (req, res) => {
       addedBy: req.user._id,
       files,
     });
+
+    if (req.files && req.files.length > 0) {
+      setImmediate(() => {
+        processMachineFiles(machine._id, req.files);
+      });
+    }
 
     res.status(201).json({
       message: "Machine added successfully",
