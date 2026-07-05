@@ -3,6 +3,7 @@ import {
   getManagerDashboard,
   getPendingFeedback,
   reviewFeedback,
+  getDepartmentFeedback,
 } from "../controllers/manager.controller.js";
 import { protect, authorizeRoles } from "../middleware/auth.middleware.js";
 
@@ -27,6 +28,13 @@ router.patch(
   protect,
   authorizeRoles("manager"),
   reviewFeedback,
+);
+
+router.get(
+  "/manager/feedback",
+  protect,
+  authorizeRoles("manager"),
+  getDepartmentFeedback,
 );
 
 export default router;

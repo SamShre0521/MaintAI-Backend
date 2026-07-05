@@ -99,3 +99,31 @@ export const reviewFeedback = async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 };
+
+export const getDepartmentFeedback = async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    const filter = {
+      department: req.user.department,
+    };
+
+    if (status) {
+      filter.managerStatus = status; // pending / approved / rejected
+    }
+
+    const feedbacks = await Feedback.find(filter)
+      .populate("userId", "name email role department")
+      .populate("approvedBy", "name email role department")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      department: req.user.department,
+      count: feedbacks.length,
+      feedbacks,
+    });
+  } catch (error) {
+    console.error("Get department feedback error:", error);
+    res.status(500).json({ error: "Something went wrong" });
+  }
+};
