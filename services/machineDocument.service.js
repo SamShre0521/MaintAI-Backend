@@ -3,6 +3,7 @@ import Machine from "../models/machine.model.js";
 import { createEmbedding } from "./embedding.service.js";
 import { pineconeIndex } from "../config/pinecone.js";
 import { chunkText } from "../utils/chunkText.js";
+import XLSX from "xlsx";
 
 const extractTextFromFile = async (file) => {
   if (file.mimetype === "application/pdf") {
@@ -15,6 +16,26 @@ const extractTextFromFile = async (file) => {
 
   if (file.mimetype === "text/plain") {
     return file.buffer.toString("utf-8");
+  }
+
+  if (
+    file.mimetype ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    file.mimetype === "application/vnd.ms-excel"
+  ) {
+    const workbook = XLSX.read(file.buffer, { type: "buffer" });
+
+    let text = "";
+
+    workbook.SheetNames.forEach((sheetName) => {
+      const sheet = workbook.Sheets[sheetName];
+
+      text += `Sheet: ${sheetName}\n`;
+      text += XLSX.utils.sheet_to_csv(sheet);
+      text += "\n\n";
+    });
+
+    return text;
   }
 
   return "";

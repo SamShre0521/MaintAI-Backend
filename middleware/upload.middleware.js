@@ -9,10 +9,15 @@ export const uploadMachineFiles = multer({
     files: 5,
   },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["application/pdf", "text/plain"];
+    const allowedTypes = [
+      "application/pdf",
+      "text/plain",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+      "application/vnd.ms-excel", // .xls
+    ];
 
     if (!allowedTypes.includes(file.mimetype)) {
-      return cb(new Error("Only PDF and TXT files are allowed"));
+      return cb(new Error("Only PDF, TXT, XLS and XLSX files are allowed"));
     }
 
     cb(null, true);
