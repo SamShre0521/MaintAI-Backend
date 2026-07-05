@@ -3,6 +3,7 @@ import Message from "../models/message.model.js";
 import Session from "../models/session.model.js";
 import { generateResponse } from "../services/openai.service.js";
 import { searchVectorDB } from "../services/search.service.js";
+import { isMachineRelatedQuery } from "../services/queryValidation.service.js";
 
 export const chatHandler = async (req, res) => {
   const { message, sessionId, machineId } = req.body;
@@ -11,6 +12,16 @@ export const chatHandler = async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: "Message is required" });
     }
+
+    const isValidQuery = await isMachineRelatedQuery(message);
+
+    if (!isValidQuery) {
+      return res.status(400).json({
+        error:
+          "Please ask only machine-related troubleshooting, maintenance, operation, specification, or industrial equipment questions.",
+      });
+    }
+
     console.log("User message:", message);
     const currentSessionId = sessionId || uuidv4();
 
@@ -48,7 +59,7 @@ export const chatHandler = async (req, res) => {
     const relevantKnowledge = await searchVectorDB(
       message,
       req.user.department,
-       machineId || existingSession.machineId
+      machineId || existingSession.machineId,
     );
 
     console.log("RAG results:", relevantKnowledge);
