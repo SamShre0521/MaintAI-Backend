@@ -93,7 +93,8 @@ ${message}
             return `Context ${index + 1}:
 Source File: ${item.fileName}
 Machine: ${item.machineName}
-Text:
+Relevance Score: ${item.score}
+Extracted Manual Text:
 ${item.text}`;
           }
 
@@ -145,6 +146,13 @@ If not:
       sessionId: currentSessionId,
       title: existingSession.title,
       reply,
+      usedKnowledge: relevantKnowledge.length > 0,
+      knowledgeSources: relevantKnowledge.map((item) => ({
+        score: item.score,
+        type: item.type,
+        fileName: item.fileName,
+        machineName: item.machineName,
+      })),
     });
   } catch (error) {
     console.error("Chat error:", error);
