@@ -13,7 +13,27 @@ export const chatHandler = async (req, res) => {
       return res.status(400).json({ error: "Message is required" });
     }
 
-    const isValidQuery = await isMachineRelatedQuery(message);
+    let validationText = message;
+
+    if (sessionId) {
+      const previousMessages = await Message.find({ sessionId })
+        .sort({ createdAt: -1 })
+        .limit(4);
+
+      const previousContext = previousMessages
+        .map((msg) => msg.content)
+        .join("\n");
+
+      validationText = `
+Previous machine issue context:
+${previousContext}
+
+Current user message:
+${message}
+`;
+    }
+
+    const isValidQuery = await isMachineRelatedQuery(validationText);
 
     if (!isValidQuery) {
       return res.status(400).json({
