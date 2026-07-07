@@ -36,7 +36,7 @@ ${message}
     const isValidQuery = await isMachineRelatedQuery(validationText);
 
     if (!isValidQuery) {
-      return res.status(400).json({
+      return res.status(200).json({
         error:
           "Please ask only machine-related troubleshooting, maintenance, operation, specification, or industrial equipment questions.",
       });
