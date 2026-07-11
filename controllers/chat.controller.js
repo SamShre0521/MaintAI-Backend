@@ -153,6 +153,8 @@ If not:
           : "Approved Internal Knowledge Base",
     }));
 
+    console.log("Final relevantKnowledge length:", relevantKnowledge.length);
+
     res.json({
       sessionId: currentSessionId,
       title: existingSession.title,
