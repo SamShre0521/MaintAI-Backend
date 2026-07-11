@@ -142,17 +142,33 @@ If not:
       { $set: { updatedAt: new Date() } },
     );
 
+    const knowledgeSources = relevantKnowledge.map((item) => ({
+      score: item.score,
+      type: item.type,
+      fileName: item.fileName || null,
+      machineName: item.machineName || null,
+      source:
+        item.type === "machine_document"
+          ? item.fileName
+          : "Approved Internal Knowledge Base",
+    }));
+
     res.json({
       sessionId: currentSessionId,
       title: existingSession.title,
       reply,
+
       usedKnowledge: relevantKnowledge.length > 0,
-      knowledgeSources: relevantKnowledge.map((item) => ({
-        score: item.score,
-        type: item.type,
-        fileName: item.fileName,
-        machineName: item.machineName,
-      })),
+
+      sourceType:
+        relevantKnowledge.length > 0 ? "internal_knowledge" : "general_ai",
+
+      sourceMessage:
+        relevantKnowledge.length > 0
+          ? "Answer generated using MaintAI internal knowledge."
+          : "Answer generated using AI general knowledge.",
+
+      knowledgeSources,
     });
   } catch (error) {
     console.error("Chat error:", error);
