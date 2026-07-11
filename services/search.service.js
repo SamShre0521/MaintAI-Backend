@@ -1,16 +1,12 @@
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbedding } from "./embedding.service.js";
 
-export const searchVectorDB = async (query, department, machineId = null) => {
+export const searchVectorDB = async (query, machineId = null) => {
   const embedding = await createEmbedding(query);
 
   const filter = {
-    department,
+    machineId: machineId.toString(),
   };
-
-  if (machineId) {
-    filter.machineId = machineId.toString();
-  }
 
   const result = await pineconeIndex.namespace("__default__").query({
     topK: 5,
@@ -19,7 +15,8 @@ export const searchVectorDB = async (query, department, machineId = null) => {
     filter,
   });
 
-  console.log("Pinecone filter:", filter);
+  console.log("Search machineId: ", machineId);
+  console.log("Pinecone filter: ", filter);
   console.log("Raw Pinecone matches:", result.matches);
 
   if (!result.matches || result.matches.length === 0) {
@@ -30,7 +27,7 @@ export const searchVectorDB = async (query, department, machineId = null) => {
     const type = match.metadata?.type || "knowledge_base";
 
     if (type === "machine_document") {
-      return match.score >= 0.30;
+      return match.score >= 0.3;
     }
 
     return match.score >= 0.75;

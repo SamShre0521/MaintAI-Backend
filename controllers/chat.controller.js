@@ -78,7 +78,6 @@ ${message}
 
     const relevantKnowledge = await searchVectorDB(
       message,
-      req.user.department,
       machineId || existingSession.machineId,
     );
 
@@ -129,7 +128,7 @@ If not:
     ];
 
     // const reply = await generateResponse(formattedChats);
-    const reply = await generateResponse(ragChats);
+    const reply = await generateResponse(formattedChats, contextText);
 
     await Message.create({
       sessionId: currentSessionId,
