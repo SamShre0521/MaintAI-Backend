@@ -105,7 +105,7 @@ Answer: ${item.answer}`;
         .join("\n\n");
     }
 
-    console.log("Context:", contextText);
+    // console.log("Context:", contextText);
 
     const ragChats = [
       {
