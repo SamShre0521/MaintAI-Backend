@@ -28,7 +28,6 @@ export const submitFeedback = async (req, res) => {
     res.status(500).json({ error: "Something went wrong" });
   }
 };
-import Feedback from "../models/feedback.model.js";
 
 export const resubmitFeedback = async (req, res) => {
   try {
