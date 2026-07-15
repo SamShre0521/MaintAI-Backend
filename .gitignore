@@ -1,4 +1,12 @@
+# Dependencies
 node_modules/
+
+# Environment files
 .env
 .env.local
+
+# macOS
 .DS_Store
+
+# Firebase Admin SDK Service Account Key
+maintai-f7bee-firebase-adminsdk-fbsvc-966ca439fa.json

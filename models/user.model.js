@@ -1,5 +1,27 @@
 import mongoose from "mongoose";
 
+const deviceTokenSchema = new mongoose.Schema(
+  {
+    token: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    platform: {
+      type: String,
+      enum: ["android", "ios", "web"],
+      required: true,
+    },
+    updatedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  {
+    _id: false,
+  },
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -28,8 +50,15 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
+    deviceTokens: {
+      type: [deviceTokenSchema],
+      default: [],
+    },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
 const User = mongoose.model("User", userSchema);

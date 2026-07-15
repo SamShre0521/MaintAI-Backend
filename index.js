@@ -7,6 +7,8 @@ import managerRoutes from "./routes/manager.routes.js";
 import feedbackRoutes from "./routes/feedback.routes.js";
 import knowledgeBaseRoutes from "./routes/knowledgeBase.routes.js";
 import machineRoutes from "./routes/machine.routes.js";
+import deviceTokenRoutes from "./routes/deviceToken.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 import cors from "cors";
 
 const app = express();
@@ -47,3 +49,5 @@ app.use("/api", managerRoutes);
 app.use("/api", feedbackRoutes);
 app.use("/api", knowledgeBaseRoutes);
 app.use("/api", machineRoutes);
+app.use("/api", deviceTokenRoutes);
+app.use("/api", notificationRoutes);

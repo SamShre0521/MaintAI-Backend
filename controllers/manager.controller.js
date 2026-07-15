@@ -1,6 +1,9 @@
 import Feedback from "../models/feedback.model.js";
 import KnowledgeBase from "../models/knowledgeBase.model.js";
 import { upsertKnowledgeToVectorDB } from "../services/vector.service.js";
+import Notification from "../models/notification.model.js";
+
+import { sendPushNotificationToUser } from "../services/pushNotification.service.js";
 
 export const getManagerDashboard = async (req, res) => {
   try {
@@ -35,13 +38,22 @@ export const getPendingFeedback = async (req, res) => {
 
 export const reviewFeedback = async (req, res) => {
   const { id } = req.params;
-  const { managerStatus, managerComment, machineName, issueType, tags } =
-    req.body;
+
+  const {
+    managerStatus,
+    managerComment,
+    machineName,
+    issueType,
+    tags,
+  } = req.body;
 
   try {
-    if (!["approved", "rejected"].includes(managerStatus)) {
+    if (
+      !["approved", "rejected"].includes(managerStatus)
+    ) {
       return res.status(400).json({
-        error: "managerStatus must be approved or rejected",
+        error:
+          "managerStatus must be approved or rejected",
       });
     }
 
@@ -55,18 +67,24 @@ export const reviewFeedback = async (req, res) => {
         managerComment: managerComment || "",
         approvedBy: req.user._id,
       },
-      { returnDocument: "after" },
+      {
+        returnDocument: "after",
+      },
     );
 
     if (!feedback) {
-      return res.status(404).json({ error: "Feedback not found" });
+      return res.status(404).json({
+        error: "Feedback not found",
+      });
     }
 
     let knowledge = null;
 
     if (managerStatus === "approved") {
       knowledge = await KnowledgeBase.findOneAndUpdate(
-        { sourceFeedbackId: feedback._id },
+        {
+          sourceFeedbackId: feedback._id,
+        },
         {
           question: feedback.question,
           answer: feedback.answer,
@@ -86,17 +104,82 @@ export const reviewFeedback = async (req, res) => {
       await upsertKnowledgeToVectorDB(knowledge);
     }
 
-    res.json({
-      message:
-        managerStatus === "approved"
-          ? "Feedback approved and saved to knowledge base"
-          : "Feedback rejected successfully",
+    const isApproved =
+      managerStatus === "approved";
+
+    const notification =
+      await Notification.create({
+        userId: feedback.userId,
+
+        type: isApproved
+          ? "feedback_approved"
+          : "feedback_rejected",
+
+        title: isApproved
+          ? "Solution approved"
+          : "Solution needs revision",
+
+        message: isApproved
+          ? "Your troubleshooting solution was approved and stored in the MaintAI knowledge base."
+          : managerComment ||
+            "Your troubleshooting solution requires revision.",
+
+        feedbackId: feedback._id,
+        sessionId: feedback.sessionId,
+        isRead: false,
+      });
+
+    let pushResult = {
+      successCount: 0,
+      failureCount: 0,
+    };
+
+    try {
+      pushResult =
+        await sendPushNotificationToUser({
+          userId: feedback.userId,
+
+          title: notification.title,
+
+          body: notification.message,
+
+          data: {
+            type: notification.type,
+            notificationId:
+              notification._id.toString(),
+            feedbackId: feedback._id.toString(),
+            sessionId: feedback.sessionId,
+          },
+        });
+    } catch (pushError) {
+      console.error(
+        "Feedback updated, but push delivery failed:",
+        pushError,
+      );
+    }
+
+    return res.status(200).json({
+      message: isApproved
+        ? "Feedback approved and saved to knowledge base"
+        : "Feedback rejected successfully",
+
       feedback,
       knowledge,
+
+      notification: {
+        id: notification._id,
+        type: notification.type,
+        isRead: notification.isRead,
+      },
+
+      push: pushResult,
     });
   } catch (error) {
     console.error("Review feedback error:", error);
-    res.status(500).json({ error: "Something went wrong" });
+
+    return res.status(500).json({
+      error: "Something went wrong",
+    });
   }
 };
 
