@@ -39,21 +39,13 @@ export const getPendingFeedback = async (req, res) => {
 export const reviewFeedback = async (req, res) => {
   const { id } = req.params;
 
-  const {
-    managerStatus,
-    managerComment,
-    machineName,
-    issueType,
-    tags,
-  } = req.body;
+  const { managerStatus, managerComment, machineName, issueType, tags } =
+    req.body;
 
   try {
-    if (
-      !["approved", "rejected"].includes(managerStatus)
-    ) {
+    if (!["approved", "rejected"].includes(managerStatus)) {
       return res.status(400).json({
-        error:
-          "managerStatus must be approved or rejected",
+        error: "managerStatus must be approved or rejected",
       });
     }
 
@@ -104,58 +96,75 @@ export const reviewFeedback = async (req, res) => {
       await upsertKnowledgeToVectorDB(knowledge);
     }
 
-    const isApproved =
-      managerStatus === "approved";
+    const isApproved = managerStatus === "approved";
 
-    const notification =
-      await Notification.create({
-        userId: feedback.userId,
+    const notification = await Notification.create({
+      userId: feedback.userId,
 
-        type: isApproved
-          ? "feedback_approved"
-          : "feedback_rejected",
+      type: isApproved ? "feedback_approved" : "feedback_rejected",
 
-        title: isApproved
-          ? "Solution approved"
-          : "Solution needs revision",
+      title: isApproved ? "Solution approved" : "Solution needs revision",
 
-        message: isApproved
-          ? "Your troubleshooting solution was approved and stored in the MaintAI knowledge base."
-          : managerComment ||
-            "Your troubleshooting solution requires revision.",
+      message: isApproved
+        ? "Your troubleshooting solution was approved and stored in the MaintAI knowledge base."
+        : managerComment || "Your troubleshooting solution requires revision.",
 
-        feedbackId: feedback._id,
-        sessionId: feedback.sessionId,
-        isRead: false,
-      });
+      feedbackId: feedback._id,
+      sessionId: feedback.sessionId,
+      isRead: false,
+    });
 
     let pushResult = {
       successCount: 0,
       failureCount: 0,
     };
 
+    // try {
+    //   pushResult =
+    //     await sendPushNotificationToUser({
+    //       userId: feedback.userId,
+
+    //       title: notification.title,
+
+    //       body: notification.message,
+
+    //       data: {
+    //         type: notification.type,
+    //         notificationId:
+    //           notification._id.toString(),
+    //         feedbackId: feedback._id.toString(),
+    //         sessionId: feedback.sessionId,
+    //       },
+    //     });
+    // } catch (pushError) {
+    //   console.error(
+    //     "Feedback updated, but push delivery failed:",
+    //     pushError,
+    //   );
+    // }
+
     try {
-      pushResult =
-        await sendPushNotificationToUser({
-          userId: feedback.userId,
+      console.log("========== PUSH START ==========");
+      console.log("Feedback ID:", feedback._id.toString());
+      console.log("Feedback owner:", feedback.userId.toString());
+      console.log("Notification type:", notification.type);
 
-          title: notification.title,
+      pushResult = await sendPushNotificationToUser({
+        userId: feedback.userId,
+        title: notification.title,
+        body: notification.message,
+        data: {
+          type: notification.type,
+          notificationId: notification._id.toString(),
+          feedbackId: feedback._id.toString(),
+          sessionId: feedback.sessionId,
+        },
+      });
 
-          body: notification.message,
-
-          data: {
-            type: notification.type,
-            notificationId:
-              notification._id.toString(),
-            feedbackId: feedback._id.toString(),
-            sessionId: feedback.sessionId,
-          },
-        });
+      console.log("Push result:", pushResult);
+      console.log("========== PUSH END ==========");
     } catch (pushError) {
-      console.error(
-        "Feedback updated, but push delivery failed:",
-        pushError,
-      );
+      console.error("Feedback updated, but push delivery failed:", pushError);
     }
 
     return res.status(200).json({
