@@ -1,43 +1,13 @@
 {
   "info": {
+    "_postman_id": "f4dd27ae-dd5a-41d2-9a11-c6a282e9ffdd",
     "name": "MaintAI Backend",
-    "_postman_id": "d2f8c8d2-8c49-4a4e-9f0b-1c3f1a7b8e11",
     "description": "Postman collection for MaintAI backend APIs",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53766387",
+    "_collection_link": "https://go.postman.co/collection/53766387-f4dd27ae-dd5a-41d2-9a11-c6a282e9ffdd?source=collection_link"
   },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000/api"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "sessionId",
-      "value": ""
-    },
-    {
-      "key": "feedbackId",
-      "value": ""
-    }
-  ],
   "item": [
-    {
-      "name": "Health Check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "http://localhost:3000/",
-          "protocol": "http",
-          "host": ["localhost"],
-          "port": "3000",
-          "path": [""]
-        }
-      }
-    },
     {
       "name": "Auth",
       "item": [
@@ -53,14 +23,20 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Engineer One\",\n  \"email\": \"engineer@test.com\",\n  \"password\": \"123456\",\n  \"role\": \"engineer\"\n}"
+              "raw": "{\n  \"name\": \"Engineer One\",\n  \"email\": \"engineer@test.com\",\n  \"password\": \"123456\",\n  \"role\": \"engineer\",\n  \"department\":\"Electrical\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/signup",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Signup Manager",
@@ -78,10 +54,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/signup",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "signup"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "signup"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Login Engineer",
@@ -99,10 +81,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Login Manager",
@@ -120,10 +108,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -150,10 +144,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Continue Chat",
@@ -175,10 +174,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/chat",
-              "host": ["{{baseUrl}}"],
-              "path": ["chat"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "chat"
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -197,10 +201,15 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/sessions",
-              "host": ["{{baseUrl}}"],
-              "path": ["sessions"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Session Messages",
@@ -214,10 +223,17 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/sessions/{{sessionId}}/messages",
-              "host": ["{{baseUrl}}"],
-              "path": ["sessions", "{{sessionId}}", "messages"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{sessionId}}",
+                "messages"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Rename Session",
@@ -239,10 +255,16 @@
             },
             "url": {
               "raw": "{{baseUrl}}/sessions/{{sessionId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["sessions", "{{sessionId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{sessionId}}"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Delete Session",
@@ -256,10 +278,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/sessions/{{sessionId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["sessions", "{{sessionId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{sessionId}}"
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -286,10 +314,15 @@
             },
             "url": {
               "raw": "{{baseUrl}}/feedback",
-              "host": ["{{baseUrl}}"],
-              "path": ["feedback"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "feedback"
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
     },
@@ -308,10 +341,16 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/manager/dashboard",
-              "host": ["{{baseUrl}}"],
-              "path": ["manager", "dashboard"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "dashboard"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Get Pending Feedback",
@@ -325,10 +364,17 @@
             ],
             "url": {
               "raw": "{{baseUrl}}/manager/feedback/pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["manager", "feedback", "pending"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "feedback",
+                "pending"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Approve Feedback",
@@ -350,10 +396,17 @@
             },
             "url": {
               "raw": "{{baseUrl}}/manager/feedback/{{feedbackId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["manager", "feedback", "{{feedbackId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "feedback",
+                "{{feedbackId}}"
+              ]
             }
-          }
+          },
+          "response": []
         },
         {
           "name": "Reject Feedback",
@@ -375,12 +428,185 @@
             },
             "url": {
               "raw": "{{baseUrl}}/manager/feedback/{{feedbackId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["manager", "feedback", "{{feedbackId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "manager",
+                "feedback",
+                "{{feedbackId}}"
+              ]
             }
-          }
+          },
+          "response": []
         }
       ]
+    },
+    {
+      "name": "Notification System",
+      "item": [
+        {
+          "name": "Register Device Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": " Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": " application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{fcmToken}}\",\n  \"platform\": \"android\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Device Token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": " Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": " application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{fcmToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/device-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "device-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "Unread count",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "Notification Details",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        },
+        {
+          "name": "Mark all read",
+          "request": {
+            "method": "GET",
+            "header": []
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "3000",
+          "path": [
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get all Machine",
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "feedbackId",
+      "value": ""
     }
   ]
 }
