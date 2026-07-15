@@ -10,5 +10,10 @@ router.post(
   authorizeRoles("engineer", "manager"),
   submitFeedback
 );
+router.patch(
+  "/feedbacks/:id/resubmit",
+  protect,
+  resubmitFeedback,
+);
 
 export default router;

@@ -43,6 +43,45 @@ const feedbackSchema = new mongoose.Schema(
       ref: "User",
       default: null,
     },
+    revisionNumber: {
+  type: Number,
+  default: 1,
+},
+
+resubmittedAt: {
+  type: Date,
+  default: null,
+},
+
+revisionHistory: [
+  {
+    question: {
+      type: String,
+      required: true,
+    },
+
+    answer: {
+      type: String,
+      required: true,
+    },
+
+    managerStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      required: true,
+    },
+
+    managerComment: {
+      type: String,
+      default: "",
+    },
+
+    revisedAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+],
   },
   { timestamps: true },
 );
@@ -50,3 +89,4 @@ const feedbackSchema = new mongoose.Schema(
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 
 export default Feedback;
+
