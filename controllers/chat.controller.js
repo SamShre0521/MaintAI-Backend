@@ -81,7 +81,7 @@ ${message}
       machineId || existingSession.machineId,
     );
 
-    console.log("RAG results:", relevantKnowledge);
+    // console.log("RAG results:", relevantKnowledge);
 
     let contextText = "";
 
@@ -152,7 +152,7 @@ If not:
           : "Approved Internal Knowledge Base",
     }));
 
-    console.log("Final relevantKnowledge length:", relevantKnowledge.length);
+    // console.log("Final relevantKnowledge length:", relevantKnowledge.length);
 
     res.json({
       sessionId: currentSessionId,
