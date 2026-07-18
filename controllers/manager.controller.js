@@ -93,7 +93,21 @@ export const reviewFeedback = async (req, res) => {
         },
       );
 
-      await upsertKnowledgeToVectorDB(knowledge);
+      // await upsertKnowledgeToVectorDB(knowledge);
+      try {
+        await upsertKnowledgeToVectorDB(knowledge);
+        vectorStored = true;
+
+        console.log(
+          "Knowledge successfully stored in Pinecone:",
+          knowledge._id.toString(),
+        );
+      } catch (vectorError) {
+        console.error(
+          "Knowledge approved, but Pinecone storage failed:",
+          vectorError,
+        );
+      }
     }
 
     const isApproved = managerStatus === "approved";
@@ -174,7 +188,7 @@ export const reviewFeedback = async (req, res) => {
 
       feedback,
       knowledge,
-
+      vectorStored,
       notification: {
         id: notification._id,
         type: notification.type,
@@ -183,6 +197,7 @@ export const reviewFeedback = async (req, res) => {
 
       push: pushResult,
     });
+    console.log("Push result:", pushResult);
   } catch (error) {
     console.error("Review feedback error:", error);
 
