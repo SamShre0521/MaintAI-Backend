@@ -1,7 +1,8 @@
 import Feedback from "../models/feedback.model.js";
 
 export const submitFeedback = async (req, res) => {
-  const { sessionId, question, answer, engineerFeedback } = req.body;
+  const { sessionId, question, answer, engineerFeedback, conversation } =
+    req.body;
 
   try {
     if (!sessionId || !question || !answer || !engineerFeedback) {
@@ -9,6 +10,23 @@ export const submitFeedback = async (req, res) => {
         error: "sessionId, question, answer and engineerFeedback are required",
       });
     }
+    //validate conversation array
+    const safeConversation = Array.isArray(conversation)
+      ? conversation
+          .filter(
+            (message) =>
+              ["user", "assistant"].includes(message.role) &&
+              typeof message.content === "string" &&
+              message.content.trim(),
+          )
+          .map((message) => ({
+            role: message.role,
+            content: message.content.trim(),
+            createdAt: message.createdAt
+              ? new Date(message.createdAt)
+              : new Date(),
+          }))
+      : [];
 
     const feedback = await Feedback.create({
       sessionId,
@@ -17,6 +35,7 @@ export const submitFeedback = async (req, res) => {
       answer,
       engineerFeedback,
       department: req.user.department,
+      conversation: safeConversation,
     });
 
     res.status(201).json({
@@ -70,8 +89,7 @@ export const resubmitFeedback = async (req, res) => {
     feedback.managerStatus = "pending";
     feedback.managerComment = "";
     feedback.approvedBy = null;
-    feedback.revisionNumber =
-      (feedback.revisionNumber || 1) + 1;
+    feedback.revisionNumber = (feedback.revisionNumber || 1) + 1;
     feedback.resubmittedAt = new Date();
 
     await feedback.save();
