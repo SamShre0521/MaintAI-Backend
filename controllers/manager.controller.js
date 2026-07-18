@@ -72,6 +72,7 @@ export const reviewFeedback = async (req, res) => {
 
     let knowledge = null;
 
+    let vectorStored = false;
     if (managerStatus === "approved") {
       knowledge = await KnowledgeBase.findOneAndUpdate(
         {
@@ -93,7 +94,6 @@ export const reviewFeedback = async (req, res) => {
         },
       );
 
-      // await upsertKnowledgeToVectorDB(knowledge);
       try {
         await upsertKnowledgeToVectorDB(knowledge);
         vectorStored = true;

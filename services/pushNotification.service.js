@@ -41,17 +41,13 @@ export const sendPushNotificationToUser = async ({
   );
 
   const messaging = getMessaging(firebaseAdminApp);
-
   const response = await messaging.sendEachForMulticast({
     tokens,
-
     notification: {
       title,
       body,
     },
-
     data: stringData,
-
     android: {
       priority: "high",
       notification: {
@@ -60,6 +56,8 @@ export const sendPushNotificationToUser = async ({
       },
     },
   });
+
+  const invalidTokens = [];
 
   response.responses.forEach((result, index) => {
     if (result.success) {
