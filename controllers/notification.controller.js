@@ -31,27 +31,27 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-export const getUnreadNotificationCount = async (
-  req,
-  res,
-) => {
-  try {
-    const count = await Notification.countDocuments({
-      userId: req.user._id,
-      isRead: false,
-    });
+// export const getUnreadNotificationCount = async (
+//   req,
+//   res,
+// ) => {
+//   try {
+//     const count = await Notification.countDocuments({
+//       userId: req.user._id,
+//       isRead: false,
+//     });
 
-    return res.status(200).json({
-      count,
-    });
-  } catch (error) {
-    console.error("Get unread count error:", error);
+//     return res.status(200).json({
+//       count,
+//     });
+//   } catch (error) {
+//     console.error("Get unread count error:", error);
 
-    return res.status(500).json({
-      error: "Something went wrong",
-    });
-  }
-};
+//     return res.status(500).json({
+//       error: "Something went wrong",
+//     });
+//   }
+// };
 
 export const getNotificationById = async (req, res) => {
   try {
