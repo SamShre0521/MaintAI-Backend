@@ -1,5 +1,7 @@
 import Feedback from "../models/feedback.model.js";
-
+import User from "../models/user.model.js";
+import Notification from "../models/notification.model.js";
+import { sendPushNotificationToUser } from "../services/pushNotification.service.js";
 export const submitFeedback = async (req, res) => {
   const { sessionId, question, answer, engineerFeedback, conversation } =
     req.body;
@@ -37,6 +39,39 @@ export const submitFeedback = async (req, res) => {
       department: req.user.department,
       conversation: safeConversation,
     });
+    // sending feedback submission notification to the manager
+    const managers = await User.find({
+      role: "manager",
+      department: req.user.department,
+    }).select("_id");
+
+    for (const manager of managers) {
+      const notification = await Notification.create({
+        userId: manager._id,
+        type: "feedback_submitted",
+        title: "New solution submitted",
+        message: `${req.user.name || "An engineer"} submitted a solution for review.`,
+        feedbackId: feedback._id,
+        sessionId: feedback.sessionId,
+        isRead: false,
+      });
+
+      try {
+        await sendPushNotificationToUser({
+          userId: manager._id,
+          title: notification.title,
+          body: notification.message,
+          data: {
+            type: notification.type,
+            notificationId: notification._id.toString(),
+            feedbackId: feedback._id.toString(),
+            sessionId: feedback.sessionId,
+          },
+        });
+      } catch (error) {
+        console.error("Manager push notification failed:", error);
+      }
+    }
 
     res.status(201).json({
       message: "Feedback submitted successfully",
@@ -93,6 +128,40 @@ export const resubmitFeedback = async (req, res) => {
     feedback.resubmittedAt = new Date();
 
     await feedback.save();
+    // resbmitting feedback notification to the manager
+
+    const managers = await User.find({
+      role: "manager",
+      department: req.user.department,
+    }).select("_id");
+
+    for (const manager of managers) {
+      const notification = await Notification.create({
+        userId: manager._id,
+        type: "feedback_resubmitted",
+        title: "Solution resubmitted",
+        message: "An engineer revised and resubmitted a rejected solution.",
+        feedbackId: feedback._id,
+        sessionId: feedback.sessionId,
+        isRead: false,
+      });
+
+      try {
+        await sendPushNotificationToUser({
+          userId: manager._id,
+          title: notification.title,
+          body: notification.message,
+          data: {
+            type: notification.type,
+            notificationId: notification._id.toString(),
+            feedbackId: feedback._id.toString(),
+            sessionId: feedback.sessionId,
+          },
+        });
+      } catch (error) {
+        console.error("Manager push notification failed:", error);
+      }
+    }
 
     return res.status(200).json({
       message: "Feedback resubmitted successfully",
