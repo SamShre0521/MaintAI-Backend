@@ -125,6 +125,30 @@ export const markNotificationAsRead = async (
     });
   }
 };
+export const getUnreadNotificationCount = async (
+  req,
+  res,
+) => {
+  try {
+    const count = await Notification.countDocuments({
+      userId: req.user._id,
+      isRead: false,
+    });
+
+    return res.status(200).json({
+      unreadCount: count,
+    });
+  } catch (error) {
+    console.error(
+      "Get unread notification count error:",
+      error,
+    );
+
+    return res.status(500).json({
+      error: "Failed to load unread count",
+    });
+  }
+};
 
 export const markAllNotificationsAsRead = async (
   req,

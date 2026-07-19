@@ -29,7 +29,11 @@ router.patch(
   protect,
   markAllNotificationsAsRead,
 );
-
+router.get(
+  "/notifications/unread-count",
+  protect,
+  getUnreadNotificationCount,
+);
 router.get(
   "/notifications/:notificationId",
   protect,
