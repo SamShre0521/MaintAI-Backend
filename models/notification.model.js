@@ -11,7 +11,8 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["feedback_approved", "feedback_rejected"],
+      enum: ["feedback_approved", "feedback_rejected","feedback_submitted",
+    "feedback_resubmitted"],
       required: true,
     },
 
