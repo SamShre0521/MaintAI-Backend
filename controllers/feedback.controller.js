@@ -175,3 +175,46 @@ export const resubmitFeedback = async (req, res) => {
     });
   }
 };
+
+export const getMyFeedbackBySession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (!sessionId?.trim()) {
+      return res.status(400).json({
+        error: "sessionId is required",
+      });
+    }
+
+    const feedback = await Feedback.findOne({
+      sessionId,
+      userId: req.user._id,
+    })
+      .populate(
+        "approvedBy",
+        "name email role department",
+      )
+      .sort({ updatedAt: -1 });
+
+    if (!feedback) {
+      return res.status(404).json({
+        error: "No submitted feedback found for this session",
+        hasFeedback: false,
+      });
+    }
+
+    return res.status(200).json({
+      hasFeedback: true,
+      feedback,
+    });
+  } catch (error) {
+    console.error(
+      "Get feedback by session error:",
+      error,
+    );
+
+    return res.status(500).json({
+      error: "Failed to load feedback details",
+    });
+  }
+};

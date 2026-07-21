@@ -11,8 +11,12 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["feedback_approved", "feedback_rejected","feedback_submitted",
-    "feedback_resubmitted"],
+      enum: [
+        "feedback_approved",
+        "feedback_rejected",
+        "feedback_submitted",
+        "feedback_resubmitted",
+      ],
       required: true,
     },
 
@@ -50,9 +54,6 @@ const notificationSchema = new mongoose.Schema(
   },
 );
 
-const Notification = mongoose.model(
-  "Notification",
-  notificationSchema,
-);
+const Notification = mongoose.model("Notification", notificationSchema);
 
 export default Notification;
