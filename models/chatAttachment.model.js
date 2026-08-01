@@ -83,13 +83,13 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     knowledgeStatus: {
       type: String,
-      enum: [
-        "temporary",
-        "pending_approval",
-        "approved",
-        "rejected",
-      ],
+      enum: ["temporary", "pending_approval", "approved", "rejected"],
       default: "temporary",
+    },
+    messageId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Message",
+      default: null,
     },
   },
   {
@@ -97,7 +97,4 @@ const chatAttachmentSchema = new mongoose.Schema(
   },
 );
 
-export default mongoose.model(
-  "ChatAttachment",
-  chatAttachmentSchema,
-);
+export default mongoose.model("ChatAttachment", chatAttachmentSchema);
