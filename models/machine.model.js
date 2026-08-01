@@ -27,6 +27,12 @@ const machineSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    attachments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "ChatAttachment",
+      },
+    ],
     files: [
       {
         originalName: String,
