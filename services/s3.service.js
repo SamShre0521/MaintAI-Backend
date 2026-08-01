@@ -11,6 +11,17 @@ import {
   s3Bucket,
   s3Client,
 } from "../config/s3.js";
+function sanitizeFilename(filename) {
+  const extension = path.extname(filename).toLowerCase();
+
+  const name = path
+    .basename(filename, extension)
+    .replace(/[^a-zA-Z0-9-_]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80);
+
+  return `${name || "file"}${extension}`;
+}
 
 function sanitiseFilename(filename) {
   const extension = path.extname(filename).toLowerCase();
