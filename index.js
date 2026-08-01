@@ -10,7 +10,7 @@ import machineRoutes from "./routes/machine.routes.js";
 import deviceTokenRoutes from "./routes/deviceToken.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import cors from "cors";
-
+import attachmentRoutes from "./routes/attachment.routes.js";
 const app = express();
 
 
@@ -51,3 +51,7 @@ app.use("/api", knowledgeBaseRoutes);
 app.use("/api", machineRoutes);
 app.use("/api", deviceTokenRoutes);
 app.use("/api", notificationRoutes);
+app.use(
+  "/api/attachments",
+  attachmentRoutes,
+);

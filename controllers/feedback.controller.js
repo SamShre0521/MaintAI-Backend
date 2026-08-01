@@ -97,6 +97,8 @@ export const resubmitFeedback = async (req, res) => {
     const feedback = await Feedback.findOne({
       _id: id,
       userId: req.user._id,
+      companyId: req.user.companyId,
+
     });
 
     if (!feedback) {
@@ -189,6 +191,8 @@ export const getMyFeedbackBySession = async (req, res) => {
     const feedback = await Feedback.findOne({
       sessionId,
       userId: req.user._id,
+      companyId: req.user.companyId,
+
     })
       .populate(
         "approvedBy",

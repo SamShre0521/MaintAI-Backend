@@ -82,6 +82,7 @@ export async function uploadChatAttachment({
   };
 }
 
+
 export async function createAttachmentDownloadUrl(
   key,
   expiresInSeconds = 300,
@@ -113,4 +114,68 @@ export async function deleteAttachment(key) {
       Key: key,
     }),
   );
+}
+
+export async function generateAttachmentUrl(
+  key,
+  expiresIn = 300,
+) {
+  return getSignedUrl(
+    s3Client,
+    new GetObjectCommand({
+      Bucket: s3Bucket,
+      Key: key,
+    }),
+    {
+      expiresIn,
+    },
+  );
+}
+
+export async function uploadAttachmentToS3({
+  file,
+  companyId,
+  machineId,
+  sessionId,
+}) {
+  if (!file?.buffer) {
+    throw new Error("Valid file is required");
+  }
+
+  const safeFilename = sanitizeFilename(
+    file.originalname,
+  );
+
+  const uniqueFilename =
+    `${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
+
+  const key = [
+    "companies",
+    companyId.toString(),
+    "machines",
+    machineId.toString(),
+    "sessions",
+    sessionId || "temporary",
+    "attachments",
+    uniqueFilename,
+  ].join("/");
+
+   await s3Client.send(
+    new PutObjectCommand({
+      Bucket: s3Bucket,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+      Metadata: {
+        companyid: companyId.toString(),
+        machineid: machineId.toString(),
+        sessionid: sessionId || "temporary",
+      },
+    }),
+  );
+
+  return {
+    bucket: s3Bucket,
+    key,
+  };
 }

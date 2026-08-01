@@ -48,6 +48,12 @@ const notificationSchema = new mongoose.Schema(
       default: false,
       index: true,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: true,
+      index: true,
+    },
   },
   {
     timestamps: true,

@@ -63,6 +63,8 @@ export const getMachineById = async (req, res) => {
     const machine = await Machine.findOne({
       _id: id,
       department: req.user.department,
+      companyId: req.user.companyId,
+
     }).populate("addedBy", "name email role department");
 
     if (!machine) {
@@ -83,6 +85,8 @@ export const deleteMachine = async (req, res) => {
     const machine = await Machine.findOne({
       _id: id,
       department: req.user.department,
+        companyId: req.user.companyId,
+
     });
 
     if (!machine) {

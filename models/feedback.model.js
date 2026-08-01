@@ -52,6 +52,12 @@ resubmittedAt: {
   type: Date,
   default: null,
 },
+companyId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Company",
+  required: true,
+  index: true,
+},
 conversation: [
   {
     role: {

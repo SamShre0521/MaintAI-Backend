@@ -40,8 +40,14 @@ const knowledgeBaseSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: true,
+      index: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const KnowledgeBase = mongoose.model("KnowledgeBase", knowledgeBaseSchema);

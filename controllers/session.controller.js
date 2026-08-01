@@ -21,6 +21,8 @@ export const getSessionMessages = async (req, res) => {
     const session = await Session.findOne({
       sessionId,
       userId: req.user._id,
+      companyId: req.user.companyId,
+
     });
 
     if (!session) {
@@ -72,6 +74,8 @@ export const deleteSession = async (req, res) => {
     const session = await Session.findOne({
       sessionId,
       userId: req.user._id,
+      companyId: req.user.companyId,
+
     });
 
     if (!session) {

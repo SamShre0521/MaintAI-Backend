@@ -26,6 +26,12 @@ const sessionSchema = new mongoose.Schema(
       ref: "Machine",
       default: null,
     },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: true,
+      index: true,
+    },
   },
   { timestamps: true },
 );

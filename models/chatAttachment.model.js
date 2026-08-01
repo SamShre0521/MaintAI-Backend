@@ -18,14 +18,8 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     sessionId: {
       type: String,
-      required: true,
+      default: "",
       index: true,
-    },
-
-    messageId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Message",
-      default: null,
     },
 
     uploadedBy: {
@@ -41,6 +35,12 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     mimeType: {
       type: String,
+      required: true,
+    },
+
+    attachmentType: {
+      type: String,
+      enum: ["image", "pdf", "spreadsheet", "text", "unknown"],
       required: true,
     },
 
@@ -60,24 +60,9 @@ const chatAttachmentSchema = new mongoose.Schema(
       unique: true,
     },
 
-    purpose: {
-      type: String,
-      enum: [
-        "error_image",
-        "supporting_document",
-        "solution_document",
-      ],
-      default: "supporting_document",
-    },
-
     processingStatus: {
       type: String,
-      enum: [
-        "uploaded",
-        "processing",
-        "completed",
-        "failed",
-      ],
+      enum: ["uploaded", "processing", "completed", "failed"],
       default: "uploaded",
     },
 
