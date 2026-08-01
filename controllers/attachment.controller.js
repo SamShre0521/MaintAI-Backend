@@ -1,5 +1,8 @@
 import Machine from "../models/machine.model.js";
 import ChatAttachment from "../models/chatAttachment.model.js";
+import {
+  extractSinglePageText,
+} from "../services/ocr.service.js";
 
 import {
   uploadAttachmentToS3,
@@ -134,6 +137,136 @@ export const getAttachmentDownloadUrl = async (
     return res.status(500).json({
       error:
         "Failed to generate attachment URL",
+    });
+  }
+};
+export const processAttachmentOcr = async (
+  req,
+  res,
+) => {
+  const { id } = req.params;
+
+  try {
+    const attachment =
+      await ChatAttachment.findOne({
+        _id: id,
+        companyId: req.user.companyId,
+      });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
+      });
+    }
+
+    const supportedTypes = new Set([
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ]);
+
+    if (!supportedTypes.has(attachment.mimeType)) {
+      return res.status(400).json({
+        error:
+          "OCR is currently supported only for JPG, PNG and PDF files",
+      });
+    }
+
+    /*
+     * Do not send WEBP to Textract.
+     * Your upload middleware supports WEBP,
+     * but Textract officially supports JPEG,
+     * PNG, TIFF and PDF.
+     */
+    if (attachment.mimeType === "image/webp") {
+      return res.status(400).json({
+        error:
+          "WEBP must be converted to PNG or JPEG before OCR",
+      });
+    }
+
+    if (attachment.processingStatus === "processing") {
+      return res.status(409).json({
+        error:
+          "This attachment is already being processed",
+      });
+    }
+
+    await ChatAttachment.updateOne(
+      {
+        _id: attachment._id,
+        companyId: req.user.companyId,
+      },
+      {
+        $set: {
+          processingStatus: "processing",
+          processingError: "",
+        },
+      },
+    );
+
+    const result = await extractSinglePageText({
+      bucket: attachment.s3Bucket,
+      key: attachment.s3Key,
+    });
+
+    const updatedAttachment =
+      await ChatAttachment.findOneAndUpdate(
+        {
+          _id: attachment._id,
+          companyId: req.user.companyId,
+        },
+        {
+          $set: {
+            extractedText: result.extractedText,
+            processingStatus: "completed",
+            processingError: "",
+          },
+        },
+        {
+          returnDocument: "after",
+        },
+      );
+
+    return res.status(200).json({
+      message: "OCR completed successfully",
+      attachment: {
+        id: updatedAttachment._id,
+        originalName:
+          updatedAttachment.originalName,
+        processingStatus:
+          updatedAttachment.processingStatus,
+        extractedText:
+          updatedAttachment.extractedText,
+        blockCount: result.blockCount,
+      },
+    });
+  } catch (error) {
+    console.error("Attachment OCR error:", error);
+
+    await ChatAttachment.updateOne(
+      {
+        _id: id,
+        companyId: req.user.companyId,
+      },
+      {
+        $set: {
+          processingStatus: "failed",
+          processingError:
+            error.message || "OCR processing failed",
+        },
+      },
+    ).catch((updateError) => {
+      console.error(
+        "Could not update OCR failure status:",
+        updateError,
+      );
+    });
+
+    return res.status(500).json({
+      error:
+        error.message || "OCR processing failed",
     });
   }
 };

@@ -3,6 +3,7 @@ import express from "express";
 import {
   uploadTestAttachments,
   getAttachmentDownloadUrl,
+  processAttachmentOcr
 } from "../controllers/attachment.controller.js";
 
 import {
@@ -26,6 +27,11 @@ router.get(
   "/:id/download-url",
   protect,
   getAttachmentDownloadUrl,
+);
+router.post(
+  "/:id/process-ocr",
+  protect,
+  processAttachmentOcr,
 );
 
 export default router;
