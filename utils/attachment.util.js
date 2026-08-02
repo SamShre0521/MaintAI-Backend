@@ -23,3 +23,13 @@ export function getAttachmentType(file) {
 
   return "unknown";
 }
+
+export function supportsSynchronousOcr(attachment) {
+  const supportedMimeTypes = new Set([
+    "image/jpeg",
+    "image/png",
+    "application/pdf",
+  ]);
+
+  return supportedMimeTypes.has(attachment.mimeType);
+}

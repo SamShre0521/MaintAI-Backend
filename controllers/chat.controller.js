@@ -9,13 +9,11 @@ import { generateResponse } from "../services/openai.service.js";
 import { searchVectorDB } from "../services/search.service.js";
 import { isMachineRelatedQuery } from "../services/queryValidation.service.js";
 import { saveUploadedAttachments } from "../services/attachment.service.js";
+import { processAttachmentWithOcr } from "../services/attachmentOcr.service.js";
+import { supportsSynchronousOcr } from "../utils/attachment.util.js";
 
 export const chatHandler = async (req, res) => {
-  const {
-    message,
-    sessionId,
-    machineId,
-  } = req.body;
+  const { message, sessionId, machineId } = req.body;
 
   try {
     if (!message || !message.trim()) {
@@ -43,9 +41,6 @@ export const chatHandler = async (req, res) => {
 
     /*
      * 1. Resolve existing session.
-     *
-     * For continued chats, machineId may not be present in the request.
-     * Therefore, first load the session and retrieve its machineId.
      */
     let existingSession = null;
 
@@ -73,8 +68,7 @@ export const chatHandler = async (req, res) => {
     }
 
     /*
-     * 2. Verify the selected/resolved machine belongs
-     * to the authenticated user's company.
+     * 2. Verify machine belongs to the user's company.
      */
     const machine = await Machine.findOne({
       _id: resolvedMachineId,
@@ -89,7 +83,7 @@ export const chatHandler = async (req, res) => {
     }
 
     /*
-     * 3. Prepare validation context.
+     * 3. Prepare query-validation context.
      */
     let validationText = message.trim();
 
@@ -126,10 +120,8 @@ ${message}
     }
 
     /*
-     * 4. Create session for a new conversation.
-     *
-     * The real session ID must exist before uploading files,
-     * so attachments are never stored under temporary/.
+     * 4. Create a session before uploading files so that
+     * attachments use the real session UUID.
      */
     if (!existingSession) {
       existingSession = await Session.create({
@@ -146,7 +138,7 @@ ${message}
     }
 
     /*
-     * 5. Upload attachments to S3 and store metadata.
+     * 5. Upload files to S3 and create attachment metadata.
      */
     const uploadedAttachments =
       await saveUploadedAttachments({
@@ -158,7 +150,60 @@ ${message}
       });
 
     /*
-     * 6. Save the user message and link attachment IDs.
+     * 6. Run synchronous OCR on supported files.
+     *
+     * Supported initially:
+     * JPG / JPEG / PNG / single-page PDF
+     */
+    const processedAttachments = [];
+
+    for (const attachment of uploadedAttachments) {
+      if (!supportsSynchronousOcr(attachment)) {
+        processedAttachments.push(attachment);
+        continue;
+      }
+
+      try {
+        const processedAttachment =
+          await processAttachmentWithOcr({
+            attachmentId: attachment._id,
+            companyId,
+          });
+
+        processedAttachments.push(
+          processedAttachment || attachment,
+        );
+      } catch (ocrError) {
+        console.error(
+          `OCR failed for attachment ${attachment._id}:`,
+          ocrError,
+        );
+
+        const failedAttachment =
+          await ChatAttachment.findOne({
+            _id: attachment._id,
+            companyId,
+          });
+
+        processedAttachments.push(
+          failedAttachment || attachment,
+        );
+      }
+    }
+
+    console.log(
+      "Processed attachments:",
+      processedAttachments.map((attachment) => ({
+        id: attachment._id.toString(),
+        processingStatus:
+          attachment.processingStatus,
+        extractedTextLength:
+          attachment.extractedText?.length || 0,
+      })),
+    );
+
+    /*
+     * 7. Save the user message with attachment references.
      */
     const userMessage = await Message.create({
       companyId,
@@ -166,20 +211,19 @@ ${message}
       userId,
       role: "user",
       content: message.trim(),
-      attachments: uploadedAttachments.map(
+      attachments: processedAttachments.map(
         (attachment) => attachment._id,
       ),
     });
 
     /*
-     * Optional reverse link:
-     * Store the created message ID on each ChatAttachment.
+     * 8. Store reverse messageId link on attachments.
      */
-    if (uploadedAttachments.length > 0) {
+    if (processedAttachments.length > 0) {
       await ChatAttachment.updateMany(
         {
           _id: {
-            $in: uploadedAttachments.map(
+            $in: processedAttachments.map(
               (attachment) => attachment._id,
             ),
           },
@@ -194,7 +238,7 @@ ${message}
     }
 
     /*
-     * 7. Retrieve recent chat history.
+     * 9. Retrieve recent conversation context.
      */
     const chats = await Message.find({
       sessionId: currentSessionId,
@@ -211,7 +255,7 @@ ${message}
       }));
 
     /*
-     * 8. Retrieve machine-specific approved knowledge.
+     * 10. Retrieve approved machine knowledge from Pinecone.
      */
     const relevantKnowledge = await searchVectorDB(
       message.trim(),
@@ -219,13 +263,13 @@ ${message}
       companyId,
     );
 
-    let contextText = "";
+    let internalKnowledgeContext = "";
 
     if (relevantKnowledge.length > 0) {
-      contextText = relevantKnowledge
+      internalKnowledgeContext = relevantKnowledge
         .map((item, index) => {
           if (item.type === "machine_document") {
-            return `Context ${index + 1}:
+            return `Approved Machine Manual Context ${index + 1}:
 Source File: ${item.fileName || "Unknown file"}
 Machine: ${item.machineName || machine.machineName}
 Relevance Score: ${item.score}
@@ -233,7 +277,7 @@ Extracted Manual Text:
 ${item.text || ""}`;
           }
 
-          return `Context ${index + 1}:
+          return `Approved Troubleshooting Context ${index + 1}:
 Question: ${item.question || ""}
 Answer: ${item.answer || ""}`;
         })
@@ -241,21 +285,55 @@ Answer: ${item.answer || ""}`;
     }
 
     /*
-     * Phase 1 boundary:
-     *
-     * We are storing attachments, but we are not yet sending
-     * their content to OCR/OpenAI Vision.
-     *
-     * Phase 2 will add extractedText here.
-     * Phase 3 will add visualAnalysis here.
+     * 11. Build context from newly uploaded attachment OCR.
      */
-    const reply = await generateResponse(
-      formattedChats,
-      contextText,
+    const attachmentContext = processedAttachments
+      .filter(
+        (attachment) =>
+          attachment.processingStatus === "completed" &&
+          attachment.extractedText?.trim(),
+      )
+      .map(
+        (attachment, index) => `Current Uploaded Attachment ${index + 1}:
+File Name: ${attachment.originalName}
+File Type: ${attachment.attachmentType}
+MIME Type: ${attachment.mimeType}
+
+OCR Extracted Text:
+${attachment.extractedText}`,
+      )
+      .join("\n\n");
+
+    /*
+     * 12. Combine approved knowledge and temporary
+     * current-chat attachment evidence.
+     */
+    const combinedContext = [
+      internalKnowledgeContext,
+      attachmentContext,
+    ]
+      .filter((value) => value?.trim())
+      .join("\n\n");
+
+    console.log(
+      "Internal knowledge context length:",
+      internalKnowledgeContext.length,
+    );
+    console.log(
+      "Attachment OCR context length:",
+      attachmentContext.length,
     );
 
     /*
-     * 9. Save assistant response.
+     * 13. Generate the AI response.
+     */
+    const reply = await generateResponse(
+      formattedChats,
+      combinedContext,
+    );
+
+    /*
+     * 14. Save assistant response.
      */
     await Message.create({
       companyId,
@@ -280,7 +358,7 @@ Answer: ${item.answer || ""}`;
     );
 
     /*
-     * 10. Prepare source metadata.
+     * 15. Prepare source metadata.
      */
     const knowledgeSources = relevantKnowledge.map(
       (item) => ({
@@ -296,37 +374,77 @@ Answer: ${item.answer || ""}`;
     );
 
     const attachmentResponse =
-      uploadedAttachments.map((attachment) => ({
+      processedAttachments.map((attachment) => ({
         id: attachment._id.toString(),
         originalName: attachment.originalName,
         mimeType: attachment.mimeType,
-        attachmentType: attachment.attachmentType,
+        attachmentType:
+          attachment.attachmentType,
         size: attachment.size,
         processingStatus:
           attachment.processingStatus,
         knowledgeStatus:
           attachment.knowledgeStatus,
+        hasExtractedText: Boolean(
+          attachment.extractedText?.trim(),
+        ),
       }));
+
+    const usedInternalKnowledge =
+      relevantKnowledge.length > 0;
+
+    const usedAttachmentOcr =
+      processedAttachments.some(
+        (attachment) =>
+          attachment.processingStatus ===
+            "completed" &&
+          attachment.extractedText?.trim(),
+      );
+
+    let sourceType = "general_ai";
+
+    if (
+      usedInternalKnowledge &&
+      usedAttachmentOcr
+    ) {
+      sourceType = "mixed";
+    } else if (usedInternalKnowledge) {
+      sourceType = "internal_knowledge";
+    } else if (usedAttachmentOcr) {
+      sourceType = "uploaded_document";
+    }
+
+    let sourceMessage =
+      "Answer generated using AI general knowledge.";
+
+    if (sourceType === "mixed") {
+      sourceMessage =
+        "Answer generated using MaintAI internal knowledge and text extracted from the uploaded attachment.";
+    } else if (
+      sourceType === "internal_knowledge"
+    ) {
+      sourceMessage =
+        "Answer generated using MaintAI internal knowledge.";
+    } else if (
+      sourceType === "uploaded_document"
+    ) {
+      sourceMessage =
+        "Answer generated using text extracted from the uploaded attachment.";
+    }
 
     return res.status(200).json({
       sessionId: currentSessionId,
       title: existingSession.title,
       reply,
 
-      usedKnowledge: relevantKnowledge.length > 0,
+      usedKnowledge:
+        usedInternalKnowledge ||
+        usedAttachmentOcr,
 
-      sourceType:
-        relevantKnowledge.length > 0
-          ? "internal_knowledge"
-          : "general_ai",
-
-      sourceMessage:
-        relevantKnowledge.length > 0
-          ? "Answer generated using MaintAI internal knowledge."
-          : "Answer generated using AI general knowledge.",
+      sourceType,
+      sourceMessage,
 
       knowledgeSources,
-
       attachments: attachmentResponse,
     });
   } catch (error) {
