@@ -185,6 +185,58 @@ ${message}
       })),
     );
 
+
+    /*
+ * Load OCR-processed attachments already uploaded
+ * earlier in this same chat session.
+ *
+ * This allows follow-up questions to use the original
+ * attachment even when no file is uploaded again.
+ */
+const previousSessionAttachments =
+  await ChatAttachment.find({
+    companyId,
+    sessionId: currentSessionId,
+    processingStatus: "completed",
+    extractedText: {
+      $exists: true,
+      $ne: "",
+    },
+  })
+    .sort({ createdAt: -1 })
+    .limit(5);
+
+/*
+ * Combine previous-session attachments with current uploads.
+ * Use a Map to prevent duplicate attachment records.
+ */
+const contextualAttachmentMap = new Map();
+
+for (const attachment of [
+  ...previousSessionAttachments,
+  ...processedAttachments,
+]) {
+  contextualAttachmentMap.set(
+    attachment._id.toString(),
+    attachment,
+  );
+}
+
+const contextualAttachments = [
+  ...contextualAttachmentMap.values(),
+];
+
+console.log(
+  "Contextual attachments:",
+  contextualAttachments.map((attachment) => ({
+    id: attachment._id.toString(),
+    originalName: attachment.originalName,
+    processingStatus: attachment.processingStatus,
+    extractedTextLength:
+      attachment.extractedText?.length || 0,
+  })),
+);
+
     /*
      * 7. Save the user message with attachment references.
      */
@@ -284,7 +336,7 @@ Answer: ${item.answer || ""}`;
     const { context: attachmentContext, sources: attachmentOcrSources } =
       buildRelevantAttachmentContext({
         query: message.trim(),
-        attachments: processedAttachments,
+        attachments: contextualAttachments,
       });
 
     /*
@@ -363,13 +415,12 @@ Answer: ${item.answer || ""}`;
     }));
 
     const usedInternalKnowledge = relevantKnowledge.length > 0;
-
-    const usedAttachmentOcr = processedAttachments.some(
-      (attachment) =>
-        attachment.processingStatus === "completed" &&
-        attachment.extractedText?.trim(),
-    );
-
+const usedAttachmentOcr =
+  contextualAttachments.some(
+    (attachment) =>
+      attachment.processingStatus === "completed" &&
+      attachment.extractedText?.trim(),
+  );
     let sourceType = "general_ai";
 
     if (usedInternalKnowledge && usedAttachmentOcr) {
@@ -398,12 +449,13 @@ Answer: ${item.answer || ""}`;
       reply,
 
       usedKnowledge:
-        usedInternalKnowledge || usedAttachmentOcr || attachmentOcrSources,
+        usedInternalKnowledge || usedAttachmentOcr || attachmentOcrSources.length> 0,
 
       sourceType,
       sourceMessage,
 
       knowledgeSources,
+      attachmentOcrSources,
       attachments: attachmentResponse,
     });
   } catch (error) {
