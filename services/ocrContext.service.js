@@ -1,6 +1,4 @@
-import {
-  selectRelevantOcrText,
-} from "../utils/textChunk.util.js";
+import { selectRelevantOcrText } from "../utils/ocr.utils.js";
 
 export function buildRelevantAttachmentContext({
   query,
