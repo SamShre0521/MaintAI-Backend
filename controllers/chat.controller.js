@@ -12,6 +12,7 @@ import { saveUploadedAttachments } from "../services/attachment.service.js";
 import { processAttachmentWithOcr } from "../services/attachmentOcr.service.js";
 import { supportsSynchronousOcr } from "../utils/attachment.util.js";
 import { buildRelevantAttachmentContext } from "../services/ocrContext.service.js";
+import { rewriteRetrievalQuery } from "../services/queryRewriter.service.js";
 
 export const chatHandler = async (req, res) => {
   const { message, sessionId, machineId } = req.body;
@@ -66,8 +67,7 @@ export const chatHandler = async (req, res) => {
       }
     }
 
-    const resolvedMachineId =
-      machineId || existingSession?.machineId;
+    const resolvedMachineId = machineId || existingSession?.machineId;
 
     if (!resolvedMachineId) {
       return res.status(400).json({
@@ -85,8 +85,7 @@ export const chatHandler = async (req, res) => {
 
     if (!machine) {
       return res.status(404).json({
-        error:
-          "Machine not found or does not belong to your company",
+        error: "Machine not found or does not belong to your company",
       });
     }
 
@@ -117,40 +116,34 @@ export const chatHandler = async (req, res) => {
         .sort({ createdAt: -1 })
         .limit(6);
 
-      const previousConversationContext =
-        [...previousMessagesForValidation]
-          .reverse()
-          .map(
-            (item) =>
-              `${item.role.toUpperCase()}: ${item.content}`,
-          )
-          .join("\n");
+      const previousConversationContext = [...previousMessagesForValidation]
+        .reverse()
+        .map((item) => `${item.role.toUpperCase()}: ${item.content}`)
+        .join("\n");
 
-      previousAttachmentsForValidation =
-        await ChatAttachment.find({
-          sessionId: currentSessionId,
-          companyId,
-          processingStatus: "completed",
-          extractedText: {
-            $exists: true,
-            $ne: "",
-          },
-        })
-          .sort({ createdAt: -1 })
-          .limit(5);
+      previousAttachmentsForValidation = await ChatAttachment.find({
+        sessionId: currentSessionId,
+        companyId,
+        processingStatus: "completed",
+        extractedText: {
+          $exists: true,
+          $ne: "",
+        },
+      })
+        .sort({ createdAt: -1 })
+        .limit(5);
 
-      const previousAttachmentContext =
-        previousAttachmentsForValidation
-          .map(
-            (attachment, index) => `
+      const previousAttachmentContext = previousAttachmentsForValidation
+        .map(
+          (attachment, index) => `
 Previous uploaded machine attachment ${index + 1}:
 File: ${attachment.originalName}
 
 OCR text:
 ${attachment.extractedText.slice(0, 2500)}
 `,
-          )
-          .join("\n");
+        )
+        .join("\n");
 
       validationText = `
 This is a continued industrial-machine troubleshooting conversation.
@@ -187,8 +180,7 @@ when they refer to the troubleshooting context above.
     /*
      * 5. Validate that the query is machine-related.
      */
-    const isValidQuery =
-      await isMachineRelatedQuery(validationText);
+    const isValidQuery = await isMachineRelatedQuery(validationText);
 
     if (!isValidQuery) {
       return res.status(200).json({
@@ -220,14 +212,13 @@ when they refer to the troubleshooting context above.
     /*
      * 7. Upload current-request attachments to S3 and MongoDB.
      */
-    const uploadedAttachments =
-      await saveUploadedAttachments({
-        files: req.files || [],
-        companyId,
-        machineId: resolvedMachineId,
-        sessionId: currentSessionId,
-        uploadedBy: userId,
-      });
+    const uploadedAttachments = await saveUploadedAttachments({
+      files: req.files || [],
+      companyId,
+      machineId: resolvedMachineId,
+      sessionId: currentSessionId,
+      uploadedBy: userId,
+    });
 
     /*
      * 8. Run OCR on supported newly uploaded attachments.
@@ -246,30 +237,21 @@ when they refer to the troubleshooting context above.
       }
 
       try {
-        const processedAttachment =
-          await processAttachmentWithOcr({
-            attachmentId: attachment._id,
-            companyId,
-          });
+        const processedAttachment = await processAttachmentWithOcr({
+          attachmentId: attachment._id,
+          companyId,
+        });
 
-        processedAttachments.push(
-          processedAttachment || attachment,
-        );
+        processedAttachments.push(processedAttachment || attachment);
       } catch (ocrError) {
-        console.error(
-          `OCR failed for attachment ${attachment._id}:`,
-          ocrError,
-        );
+        console.error(`OCR failed for attachment ${attachment._id}:`, ocrError);
 
-        const failedAttachment =
-          await ChatAttachment.findOne({
-            _id: attachment._id,
-            companyId,
-          });
+        const failedAttachment = await ChatAttachment.findOne({
+          _id: attachment._id,
+          companyId,
+        });
 
-        processedAttachments.push(
-          failedAttachment || attachment,
-        );
+        processedAttachments.push(failedAttachment || attachment);
       }
     }
 
@@ -278,10 +260,8 @@ when they refer to the troubleshooting context above.
       processedAttachments.map((attachment) => ({
         id: attachment._id.toString(),
         originalName: attachment.originalName,
-        processingStatus:
-          attachment.processingStatus,
-        extractedTextLength:
-          attachment.extractedText?.length || 0,
+        processingStatus: attachment.processingStatus,
+        extractedTextLength: attachment.extractedText?.length || 0,
       })),
     );
 
@@ -319,25 +299,18 @@ when they refer to the troubleshooting context above.
       ...previousSessionAttachments,
       ...processedAttachments,
     ]) {
-      contextualAttachmentMap.set(
-        attachment._id.toString(),
-        attachment,
-      );
+      contextualAttachmentMap.set(attachment._id.toString(), attachment);
     }
 
-    const contextualAttachments = [
-      ...contextualAttachmentMap.values(),
-    ];
+    const contextualAttachments = [...contextualAttachmentMap.values()];
 
     console.log(
       "Contextual attachments:",
       contextualAttachments.map((attachment) => ({
         id: attachment._id.toString(),
         originalName: attachment.originalName,
-        processingStatus:
-          attachment.processingStatus,
-        extractedTextLength:
-          attachment.extractedText?.length || 0,
+        processingStatus: attachment.processingStatus,
+        extractedTextLength: attachment.extractedText?.length || 0,
       })),
     );
 
@@ -356,9 +329,7 @@ when they refer to the troubleshooting context above.
       userId,
       role: "user",
       content: cleanMessage,
-      attachments: processedAttachments.map(
-        (attachment) => attachment._id,
-      ),
+      attachments: processedAttachments.map((attachment) => attachment._id),
     });
 
     /*
@@ -369,9 +340,7 @@ when they refer to the troubleshooting context above.
       await ChatAttachment.updateMany(
         {
           _id: {
-            $in: processedAttachments.map(
-              (attachment) => attachment._id,
-            ),
+            $in: processedAttachments.map((attachment) => attachment._id),
           },
           companyId,
         },
@@ -394,12 +363,42 @@ when they refer to the troubleshooting context above.
       .sort({ createdAt: 1 })
       .limit(20);
 
-    const formattedChats = chats
-      .slice(-6)
-      .map((chat) => ({
-        role: chat.role,
-        content: chat.content,
-      }));
+    const formattedChats = chats.slice(-6).map((chat) => ({
+      role: chat.role,
+      content: chat.content,
+    }));
+
+
+    /*
+ * Rewrite the latest user message into a standalone
+ * retrieval query using recent conversation context.
+ *
+ * Example:
+ * "Explain that countermeasure"
+ *
+ * becomes:
+ * "Explain the fuse replacement countermeasure for
+ * the machine stopping in AUTO mode."
+ */
+const retrievalQuery =
+  await rewriteRetrievalQuery({
+    currentMessage: cleanMessage,
+    previousMessages: formattedChats.slice(0, -1),
+    machineName:
+      machine.machineName ||
+      machine.name ||
+      "Selected machine",
+  });
+
+console.log(
+  "Original user message:",
+  cleanMessage,
+);
+
+console.log(
+  "Rewritten retrieval query:",
+  retrievalQuery,
+);
 
     /*
      * 14. Search approved machine manuals and approved
@@ -409,7 +408,7 @@ when they refer to the troubleshooting context above.
      * an attachment.
      */
     const relevantKnowledge = await searchVectorDB(
-      cleanMessage,
+      retrievalQuery,
       resolvedMachineId,
       companyId,
     );
@@ -444,22 +443,17 @@ Answer: ${item.answer || ""}`;
      * 15. Select only the relevant OCR chunks from current and
      * previous attachments.
      */
-    const {
-      context: attachmentContext,
-      sources: attachmentOcrSources,
-    } = buildRelevantAttachmentContext({
-      query: cleanMessage,
-      attachments: contextualAttachments,
-    });
+    const { context: attachmentContext, sources: attachmentOcrSources } =
+      buildRelevantAttachmentContext({
+        query: retrievalQuery,
+        attachments: contextualAttachments,
+      });
 
     /*
      * 16. Combine permanent approved knowledge with temporary
      * session attachment evidence.
      */
-    const combinedContext = [
-      internalKnowledgeContext,
-      attachmentContext,
-    ]
+    const combinedContext = [internalKnowledgeContext, attachmentContext]
       .filter((value) => value?.trim())
       .join("\n\n");
 
@@ -468,27 +462,17 @@ Answer: ${item.answer || ""}`;
       internalKnowledgeContext.length,
     );
 
-    console.log(
-      "Attachment OCR context length:",
-      attachmentContext.length,
-    );
+    console.log("Attachment OCR context length:", attachmentContext.length);
 
     console.log(
       "Selected attachment OCR sources:",
-      JSON.stringify(
-        attachmentOcrSources,
-        null,
-        2,
-      ),
+      JSON.stringify(attachmentOcrSources, null, 2),
     );
 
     /*
      * 17. Generate the assistant response.
      */
-    const reply = await generateResponse(
-      formattedChats,
-      combinedContext,
-    );
+    const reply = await generateResponse(formattedChats, combinedContext);
 
     /*
      * 18. Save the assistant response.
@@ -518,17 +502,16 @@ Answer: ${item.answer || ""}`;
     /*
      * 19. Prepare Pinecone source metadata.
      */
-    const knowledgeSources =
-      relevantKnowledge.map((item) => ({
-        score: item.score,
-        type: item.type,
-        fileName: item.fileName || null,
-        machineName: item.machineName || null,
-        source:
-          item.type === "machine_document"
-            ? item.fileName
-            : "Approved Internal Knowledge Base",
-      }));
+    const knowledgeSources = relevantKnowledge.map((item) => ({
+      score: item.score,
+      type: item.type,
+      fileName: item.fileName || null,
+      machineName: item.machineName || null,
+      source:
+        item.type === "machine_document"
+          ? item.fileName
+          : "Approved Internal Knowledge Base",
+    }));
 
     /*
      * Only return attachments uploaded in this request.
@@ -536,46 +519,33 @@ Answer: ${item.answer || ""}`;
      * For a follow-up request with no new file, this array will
      * correctly be empty.
      */
-    const attachmentResponse =
-      processedAttachments.map((attachment) => ({
-        id: attachment._id.toString(),
-        originalName: attachment.originalName,
-        mimeType: attachment.mimeType,
-        attachmentType:
-          attachment.attachmentType,
-        size: attachment.size,
-        processingStatus:
-          attachment.processingStatus,
-        knowledgeStatus:
-          attachment.knowledgeStatus,
-        hasExtractedText: Boolean(
-          attachment.extractedText?.trim(),
-        ),
-      }));
+    const attachmentResponse = processedAttachments.map((attachment) => ({
+      id: attachment._id.toString(),
+      originalName: attachment.originalName,
+      mimeType: attachment.mimeType,
+      attachmentType: attachment.attachmentType,
+      size: attachment.size,
+      processingStatus: attachment.processingStatus,
+      knowledgeStatus: attachment.knowledgeStatus,
+      hasExtractedText: Boolean(attachment.extractedText?.trim()),
+    }));
 
     /*
      * 20. Determine which sources were actually used.
      */
-    const usedInternalKnowledge =
-      relevantKnowledge.length > 0;
+    const usedInternalKnowledge = relevantKnowledge.length > 0;
 
     const usedAttachmentOcr =
       attachmentOcrSources.length > 0 &&
       contextualAttachments.some(
         (attachment) =>
-          attachment.processingStatus ===
-            "completed" &&
-          Boolean(
-            attachment.extractedText?.trim(),
-          ),
+          attachment.processingStatus === "completed" &&
+          Boolean(attachment.extractedText?.trim()),
       );
 
     let sourceType = "general_ai";
 
-    if (
-      usedInternalKnowledge &&
-      usedAttachmentOcr
-    ) {
+    if (usedInternalKnowledge && usedAttachmentOcr) {
       sourceType = "mixed";
     } else if (usedInternalKnowledge) {
       sourceType = "internal_knowledge";
@@ -583,20 +553,14 @@ Answer: ${item.answer || ""}`;
       sourceType = "uploaded_document";
     }
 
-    let sourceMessage =
-      "Answer generated using AI general knowledge.";
+    let sourceMessage = "Answer generated using AI general knowledge.";
 
     if (sourceType === "mixed") {
       sourceMessage =
         "Answer generated using MaintAI internal knowledge and text extracted from uploaded attachment evidence.";
-    } else if (
-      sourceType === "internal_knowledge"
-    ) {
-      sourceMessage =
-        "Answer generated using MaintAI internal knowledge.";
-    } else if (
-      sourceType === "uploaded_document"
-    ) {
+    } else if (sourceType === "internal_knowledge") {
+      sourceMessage = "Answer generated using MaintAI internal knowledge.";
+    } else if (sourceType === "uploaded_document") {
       sourceMessage =
         "Answer generated using text extracted from the uploaded attachment.";
     }
@@ -609,29 +573,26 @@ Answer: ${item.answer || ""}`;
       title: existingSession.title,
       reply,
 
-      usedKnowledge:
-        usedInternalKnowledge ||
-        usedAttachmentOcr,
+      usedKnowledge: usedInternalKnowledge || usedAttachmentOcr,
 
       sourceType,
       sourceMessage,
+      retrievalQuery,
 
       knowledgeSources,
       attachmentOcrSources,
       attachments: attachmentResponse,
     });
   } catch (error) {
-    console.error(
-      "========== CHAT ERROR ==========",
-    );
+    console.error("========== CHAT ERROR ==========");
 
     console.error(error);
     console.error(error.stack);
 
     return res.status(500).json({
-      error:
-        error.message ||
-        "Something went wrong",
+      error: error.message || "Something went wrong",
     });
   }
 };
+
+

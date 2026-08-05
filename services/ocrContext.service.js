@@ -29,7 +29,7 @@ export function buildRelevantAttachmentContext({
     const selected = selectRelevantOcrText({
       query,
       text: attachment.extractedText,
-      maxChunks: 3,
+      maxChunks: 1,
     });
 
     if (!selected.text.trim()) {
