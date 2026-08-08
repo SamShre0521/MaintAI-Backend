@@ -84,7 +84,6 @@ router.get(
 router.get(
   "/:id/manual-chunks/preview",
   protect,
-  authorizeRoles("manager"),
   previewManualChunks,
 );
 
