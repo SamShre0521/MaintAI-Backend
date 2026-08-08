@@ -83,7 +83,7 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     knowledgeStatus: {
       type: String,
-      enum: ["temporary", "pending_approval", "approved", "rejected"],
+      enum: ["temporary", "pending_approval", "approved", "rejected","permanent"],
       default: "temporary",
     },
     messageId: {
