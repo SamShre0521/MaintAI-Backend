@@ -158,7 +158,7 @@ export const searchVectorDB = async (
   const preRankedCandidates = rankCandidatesLexically({
     query,
     candidates,
-    limit: 12,
+    limit: 2,
   });
 
   console.log(
