@@ -1,8 +1,8 @@
 import { pineconeIndex } from "../config/pinecone.js";
-import { createEmbedding } from "./embedding.service.js";
+import { createEmbeddings } from "./embedding.service.js";
 
 export const searchVectorDB = async (query, machineId = null) => {
-  const embedding = await createEmbedding(query);
+  const embedding = await createEmbeddings(query);
 
   const filter = {
     machineId: machineId.toString(),

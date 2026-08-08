@@ -1,5 +1,5 @@
 import { pineconeIndex } from "../config/pinecone.js";
-import { createEmbedding } from "./embedding.service.js";
+import { createEmbeddings } from "./embedding.service.js";
 
 export const upsertKnowledgeToVectorDB = async (knowledge) => {
   if (!knowledge || !knowledge._id) {
@@ -15,8 +15,8 @@ Tags: ${(knowledge.tags || []).join(", ")}
 Department: ${knowledge.department}
 `;
 
-  const embedding = await createEmbedding(textToEmbed);
-
+  const embedding = await createEmbeddings(textToEmbed);
+  
   console.log("Embedding length:", embedding.length);
 
   const record = {

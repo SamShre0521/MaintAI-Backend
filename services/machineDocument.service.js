@@ -1,6 +1,6 @@
 import { PDFParse } from "pdf-parse";
 import Machine from "../models/machine.model.js";
-import { createEmbedding } from "./embedding.service.js";
+import { createEmbeddings } from "./embedding.service.js";
 import { pineconeIndex } from "../config/pinecone.js";
 import { chunkText } from "../utils/chunkText.js";
 import XLSX from "xlsx";
@@ -83,7 +83,7 @@ Content:
 ${chunk}
 `;
 
-          const embedding = await createEmbedding(textToEmbed);
+          const embedding = await createEmbeddings(textToEmbed);
 
           const record = {
             id: `${machine._id.toString()}-${file.originalname}-${i}`,
