@@ -91,7 +91,8 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department
+        department: user.department,
+        companyId: user.companyId
       },
     });
   } catch (error) {
