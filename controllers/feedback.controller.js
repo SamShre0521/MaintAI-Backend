@@ -37,12 +37,14 @@ export const submitFeedback = async (req, res) => {
       answer,
       engineerFeedback,
       department: req.user.department,
+      companyId: req.user.companyId,
       conversation: safeConversation,
     });
     // sending feedback submission notification to the manager
     const managers = await User.find({
       role: "manager",
       department: req.user.department,
+      companyId: req.user.companyId,
     }).select("_id");
 
     for (const manager of managers) {
@@ -135,6 +137,7 @@ export const resubmitFeedback = async (req, res) => {
     const managers = await User.find({
       role: "manager",
       department: req.user.department,
+      companyId: req.user.companyId,
     }).select("_id");
 
     for (const manager of managers) {
