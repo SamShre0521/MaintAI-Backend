@@ -1,5 +1,4 @@
 import Machine from "../models/machine.model.js";
-import ChatAttachment from "../models/chatAttachment.model.js";
 import {
   extractSinglePageText,
 } from "../services/ocr.service.js";
@@ -601,4 +600,3 @@ export const startAttachmentMultiPageOcr =
   };
 
 
-  
