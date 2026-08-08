@@ -20,6 +20,7 @@ import {
 import {
   buildManualChunks,
 } from "../services/manualChunking.service.js";
+import { injestManualToPinecone } from "../services/manualIngestion.service.js";
 export const uploadTestAttachments = async (
   req,
   res,
@@ -687,6 +688,98 @@ export const previewManualChunks =
         error:
           error.message ||
           "Could not chunk manual",
+      });
+    }
+  };
+
+
+  export const ingestManualKnowledge =
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const attachment =
+        await ChatAttachment.findOne({
+          _id: id,
+          companyId:
+            req.user.companyId,
+        });
+
+      if (!attachment) {
+        return res.status(404).json({
+          error:
+            "Attachment not found",
+        });
+      }
+
+      if (
+        attachment.processingStatus !==
+        "completed"
+      ) {
+        return res.status(400).json({
+          error:
+            "OCR must be completed before manual ingestion",
+        });
+      }
+
+      if (
+        !Array.isArray(
+          attachment.ocrPages,
+        ) ||
+        attachment.ocrPages.length === 0
+      ) {
+        return res.status(400).json({
+          error:
+            "No OCR pages available for ingestion",
+        });
+      }
+
+      const result =
+        await ingestManualToPinecone({
+          attachment,
+        });
+
+      /*
+       * Mark permanent only AFTER Pinecone
+       * ingestion has completed successfully.
+       */
+      attachment.knowledgeStatus =
+        "permanent";
+
+      await attachment.save();
+
+      return res.status(200).json({
+        message:
+          "Machine manual successfully added to knowledge base",
+
+        attachmentId:
+          attachment._id,
+
+        machineId:
+          attachment.machineId,
+
+        pageCount:
+          attachment.pageCount,
+
+        totalChunks:
+          result.totalChunks,
+
+        totalUpserted:
+          result.totalUpserted,
+
+        knowledgeStatus:
+          attachment.knowledgeStatus,
+      });
+    } catch (error) {
+      console.error(
+        "Manual ingestion error:",
+        error,
+      );
+
+      return res.status(500).json({
+        error:
+          error.message ||
+          "Could not ingest machine manual",
       });
     }
   };

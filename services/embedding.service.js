@@ -1,17 +1,31 @@
 import OpenAI from "openai";
-import dotenv from "dotenv";
-
-dotenv.config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const createEmbedding = async (text) => {
-  const response = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-  });
+export async function createEmbeddings(
+  texts,
+) {
+  if (!Array.isArray(texts) || texts.length === 0) {
+    return [];
+  }
 
-  return response.data[0].embedding;
-};
+  const cleanTexts = texts
+    .map((text) => text?.trim())
+    .filter(Boolean);
+
+  if (cleanTexts.length === 0) {
+    return [];
+  }
+
+  const response =
+    await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: cleanTexts,
+    });
+
+  return response.data.map(
+    (item) => item.embedding,
+  );
+}
