@@ -1,10 +1,4 @@
 import express from "express";
-
-import {
-  uploadTestAttachments,
-  processAttachmentOcr
-} from "../controllers/attachment.controller.js";
-
 import {
   protect,
 } from "../middleware/auth.middleware.js";
