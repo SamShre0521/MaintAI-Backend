@@ -90,8 +90,7 @@ router.get(
 
 router.post(
   "/:id/manual-ingestion",
-  protect,
-  authorizeRoles("manager"),
+  protect,  
   ingestManualKnowledge,
 );
 
