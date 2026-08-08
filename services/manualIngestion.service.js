@@ -1,56 +1,31 @@
-import {
-  buildManualChunks,
-} from "./manualChunking.service.js";
+import { buildManualChunks } from "./manualChunking.service.js";
 
-import {
-  createEmbeddings,
-} from "./embedding.service.js";
+import { createEmbeddings } from "./embedding.service.js";
 
-import {
-  pineconeIndex,
-} from "../config/pinecone.js";
+import { pineconeIndex } from "../config/pinecone.js";
 
-export async function ingestManualToPinecone({
-  attachment,
-}) {
+export async function ingestManualToPinecone({ attachment }) {
   if (!attachment) {
-    throw new Error(
-      "Attachment is required",
-    );
+    throw new Error("Attachment is required");
   }
 
-  if (
-    attachment.processingStatus !==
-    "completed"
-  ) {
-    throw new Error(
-      "OCR must be completed before ingestion",
-    );
+  if (attachment.processingStatus !== "completed") {
+    throw new Error("OCR must be completed before ingestion");
   }
 
-  if (
-    !Array.isArray(attachment.ocrPages) ||
-    attachment.ocrPages.length === 0
-  ) {
-    throw new Error(
-      "Attachment has no OCR pages",
-    );
+  if (!Array.isArray(attachment.ocrPages) || attachment.ocrPages.length === 0) {
+    throw new Error("Attachment has no OCR pages");
   }
 
-  const chunks =
-    buildManualChunks({
-      attachment,
-    });
+  const chunks = buildManualChunks({
+    attachment,
+  });
 
   if (chunks.length === 0) {
-    throw new Error(
-      "No manual chunks were generated",
-    );
+    throw new Error("No manual chunks were generated");
   }
 
-  console.log(
-    `Generated ${chunks.length} manual chunks`,
-  );
+  console.log(`Generated ${chunks.length} manual chunks`);
 
   /*
    * Batch embeddings so we do not send
@@ -60,69 +35,54 @@ export async function ingestManualToPinecone({
 
   let totalUpserted = 0;
 
-  for (
-    let start = 0;
-    start < chunks.length;
-    start += batchSize
-  ) {
-    const batch = chunks.slice(
-      start,
-      start + batchSize,
-    );
+  for (let start = 0; start < chunks.length; start += batchSize) {
+    const batch = chunks.slice(start, start + batchSize);
 
-    const texts = batch.map(
-      (chunk) => chunk.text,
-    );
+    const texts = batch.map((chunk) => chunk.text);
 
-    const embeddings =
-      await createEmbeddings(texts);
+    const embeddings = await createEmbeddings(texts);
 
-    if (
-      embeddings.length !== batch.length
-    ) {
-      throw new Error(
-        "Embedding count does not match chunk count",
-      );
+    if (embeddings.length !== batch.length) {
+      throw new Error("Embedding count does not match chunk count");
     }
 
-    const vectors = batch.map(
-      (chunk, index) => ({
-        /*
-         * Deterministic ID.
-         *
-         * If the same document is re-ingested,
-         * the same vector IDs get overwritten
-         * instead of producing duplicates.
-         */
-        id: [
-          "manual",
-          attachment._id.toString(),
-          chunk.pageNumber,
-          chunk.pageChunkIndex,
-        ].join("-"),
+    const vectors = batch.map((chunk, index) => ({
+      /*
+       * Deterministic ID.
+       *
+       * If the same document is re-ingested,
+       * the same vector IDs get overwritten
+       * instead of producing duplicates.
+       */
+      id: [
+        "manual",
+        attachment._id.toString(),
+        chunk.pageNumber,
+        chunk.pageChunkIndex,
+      ].join("-"),
 
-        values: embeddings[index],
+      values: embeddings[index],
 
-        metadata: {
-          ...chunk.metadata,
+      metadata: {
+        ...chunk.metadata,
 
-          text: chunk.text,
+        text: chunk.text,
 
-          knowledgeStatus:
-            "permanent",
-        },
-      }),
-    );
+        knowledgeStatus: "permanent",
+      },
+    }));
 
-    await pineconeIndex.upsert(
-      vectors,
-    );
+    // await pineconeIndex.upsert(
+    //   vectors,
+    // );
+
+    await pineconeIndex.namespace("__default__").upsert({
+      records: vectors,
+    });
 
     totalUpserted += vectors.length;
 
-    console.log(
-      `Manual ingestion progress: ${totalUpserted}/${chunks.length}`,
-    );
+    console.log(`Manual ingestion progress: ${totalUpserted}/${chunks.length}`);
   }
 
   return {

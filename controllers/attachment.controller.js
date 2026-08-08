@@ -20,7 +20,7 @@ import {
 import {
   buildManualChunks,
 } from "../services/manualChunking.service.js";
-import { injestManualToPinecone } from "../services/manualIngestion.service.js";
+import { ingestManualToPinecone } from "../services/manualIngestion.service.js";
 export const uploadTestAttachments = async (
   req,
   res,
