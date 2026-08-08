@@ -1,7 +1,7 @@
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbeddings } from "./embedding.service.js";
 import { rerankKnowledge } from "./knowledgeReranker.service.js";
-import { rankCandidatesLexically } from "../utils/rankCandidatesLexically.js";
+import { rankCandidatesLexically } from "../utils/retrievalScoring.util.js";
 export const searchVectorDB = async (
   query,
   machineId = null,
