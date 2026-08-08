@@ -71,6 +71,30 @@ Rules:
 - A lower vector similarity chunk may rank higher if its actual text directly answers the query.
 - Return ONLY valid JSON.
 - Return candidate indexes from most relevant to least relevant.
+
+EXACT-QUESTION RELEVANCE RULES:
+
+- Identify the exact subject and action requested by the user.
+- Prefer candidates that explicitly contain the answer to that exact action.
+- Do not rank a candidate highly merely because it contains related words.
+
+Example:
+
+User asks:
+"How often should hydraulic oil be replaced?"
+
+Highly relevant:
+"Replace hydraulic oil once every two years."
+
+Not highly relevant:
+"Clean hydraulic oil filter every month."
+"Clean hydraulic oil filter every 3 to 6 months."
+"Hydraulic pump makes abnormal sound."
+"Check hydraulic oil viscosity."
+
+These may be related to hydraulic oil maintenance, but they do not directly answer the replacement interval question.
+
+If one candidate directly answers the question, rank it above all indirectly related candidates.
 - Return no more than ${maxResults} candidates.
 
 Required JSON format:
