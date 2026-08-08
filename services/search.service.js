@@ -107,7 +107,7 @@ export const searchVectorDB = async (
         "knowledge_base";
 
       if (type === "machine_document") {
-        return match.score >= 0.3;
+        return match.score >= 0.5;
       }
 
       return match.score >= 0.75;
