@@ -158,7 +158,7 @@ export const searchVectorDB = async (
   const preRankedCandidates = rankCandidatesLexically({
     query,
     candidates,
-    limit: 2,
+    limit: 15,
   });
 
   console.log(
@@ -188,7 +188,7 @@ export const searchVectorDB = async (
   const reranked = await rerankKnowledge({
     query,
     candidates: preRankedCandidates,
-    maxResults: 3,
+    maxResults: 2,
   });
 
   return reranked;
