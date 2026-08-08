@@ -91,6 +91,51 @@ const chatAttachmentSchema = new mongoose.Schema(
       ref: "Message",
       default: null,
     },
+    textractJobId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+
+    ocrMode: {
+      type: String,
+      enum: ["none", "synchronous", "asynchronous"],
+      default: "none",
+    },
+
+    ocrPages: [
+      {
+        pageNumber: {
+          type: Number,
+          required: true,
+        },
+
+        text: {
+          type: String,
+          default: "",
+        },
+
+        lineCount: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
+
+    pageCount: {
+      type: Number,
+      default: 0,
+    },
+
+    ocrStartedAt: {
+      type: Date,
+      default: null,
+    },
+
+    ocrCompletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
