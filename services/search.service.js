@@ -1,49 +1,6 @@
 import { pineconeIndex } from "../config/pinecone.js";
 import { createEmbeddings } from "./embedding.service.js";
-
-// export const searchVectorDB = async (query, machineId = null) => {
-//   const embedding = await createEmbeddings(query);
-
-//   const filter = {
-//     machineId: machineId.toString(),
-//   };
-
-//   const result = await pineconeIndex.namespace("__default__").query({
-//     topK: 5,
-//     vector: embedding,
-//     includeMetadata: true,
-//     filter,
-//   });
-
-//   console.log("Search machineId: ", machineId);
-//   console.log("Pinecone filter: ", filter);
-//   console.log("Raw Pinecone matches:", result.matches);
-
-//   if (!result.matches || result.matches.length === 0) {
-//     return [];
-//   }
-
-//   const filteredMatches = result.matches.filter((match) => {
-//     const type = match.metadata?.type || "knowledge_base";
-
-//     if (type === "machine_document") {
-//       return match.score >= 0.3;
-//     }
-
-//     return match.score >= 0.75;
-//   });
-
-//   return filteredMatches.map((match) => ({
-//     score: match.score,
-//     type: match.metadata?.type || "knowledge_base",
-//     question: match.metadata?.question || "",
-//     answer: match.metadata?.answer || "",
-//     text: match.metadata?.text || "",
-//     machineName: match.metadata?.machineName || "",
-//     fileName: match.metadata?.fileName || "",
-//   }));
-// };
-
+import {rerankKnowledge} from "./rerank.service.js";
 
 export const searchVectorDB = async (
   query,
@@ -73,24 +30,35 @@ export const searchVectorDB = async (
       companyId.toString();
   }
 
+  console.log(
+    "========== PINECONE SEARCH ==========",
+  );
+
+  console.log("Query:", query);
+  console.log("Filter:", filter);
+
   const result =
     await pineconeIndex
       .namespace("__default__")
       .query({
-        topK: 5,
+        topK: 15,
         vector: embedding,
         includeMetadata: true,
         filter,
       });
 
   console.log(
-    "Pinecone filter:",
-    filter,
-  );
-
-  console.log(
     "Raw Pinecone matches:",
-    result.matches,
+    result.matches?.map((match) => ({
+      id: match.id,
+      score: match.score,
+      type: match.metadata?.type,
+      pageNumber:
+        match.metadata?.pageNumber,
+      textPreview:
+        match.metadata?.text
+          ?.substring(0, 150),
+    })),
   );
 
   if (
@@ -100,47 +68,104 @@ export const searchVectorDB = async (
     return [];
   }
 
-  const filteredMatches =
-    result.matches.filter((match) => {
-      const type =
-        match.metadata?.type ||
-        "knowledge_base";
+  /*
+   * Use a loose first-stage threshold.
+   *
+   * Pinecone is now candidate generation,
+   * not final relevance selection.
+   */
+  const candidates =
+    result.matches
+      .filter((match) => {
+        const type =
+          match.metadata?.type ||
+          "knowledge_base";
 
-      if (type === "machine_document") {
-        return match.score >= 0.5;
-      }
+        if (type === "machine_document") {
+          return match.score >= 0.30;
+        }
 
-      return match.score >= 0.75;
+        return match.score >= 0.70;
+      })
+      .map((match) => ({
+        id: match.id,
+
+        score: match.score,
+
+        type:
+          match.metadata?.type ||
+          "knowledge_base",
+
+        question:
+          match.metadata?.question || "",
+
+        answer:
+          match.metadata?.answer || "",
+
+        text:
+          match.metadata?.text || "",
+
+        machineName:
+          match.metadata?.machineName ||
+          "",
+
+        fileName:
+          match.metadata?.fileName || "",
+
+        pageNumber:
+          match.metadata?.pageNumber ??
+          null,
+
+        pageChunkIndex:
+          match.metadata
+            ?.pageChunkIndex ?? null,
+
+        attachmentId:
+          match.metadata?.attachmentId ||
+          null,
+      }));
+
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  console.log(
+    "Candidates before reranking:",
+    candidates.map((candidate) => ({
+      score: candidate.score,
+      pageNumber:
+        candidate.pageNumber,
+      textPreview:
+        candidate.text.substring(
+          0,
+          150,
+        ),
+    })),
+  );
+
+  /*
+   * Second-stage semantic relevance check.
+   */
+  const reranked =
+    await rerankKnowledge({
+      query,
+      candidates,
+      maxResults: 3,
     });
 
-  return filteredMatches.map(
-    (match) => ({
-      score: match.score,
-
-      type:
-        match.metadata?.type ||
-        "knowledge_base",
-
-      question:
-        match.metadata?.question || "",
-
-      answer:
-        match.metadata?.answer || "",
-
-      text:
-        match.metadata?.text || "",
-
-      machineName:
-        match.metadata?.machineName || "",
-
-      fileName:
-        match.metadata?.fileName || "",
-
+  console.log(
+    "Final reranked knowledge:",
+    reranked.map((candidate) => ({
+      score: candidate.score,
       pageNumber:
-        match.metadata?.pageNumber ?? null,
-
-      attachmentId:
-        match.metadata?.attachmentId || null,
-    }),
+        candidate.pageNumber,
+      textPreview:
+        candidate.text.substring(
+          0,
+          200,
+        ),
+    })),
   );
+
+  return reranked;
 };
