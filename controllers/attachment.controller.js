@@ -17,7 +17,9 @@ import {
   getMultiPageOcrResult,
   startMultiPageOcr,
 } from "../services/asyncOcr.service.js";
-
+import {
+  buildManualChunks,
+} from "../services/manualChunking.service.js";
 export const uploadTestAttachments = async (
   req,
   res,
@@ -600,3 +602,91 @@ export const startAttachmentMultiPageOcr =
   };
 
 
+export const previewManualChunks =
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      const attachment =
+        await ChatAttachment.findOne({
+          _id: id,
+          companyId:
+            req.user.companyId,
+        });
+
+      if (!attachment) {
+        return res.status(404).json({
+          error: "Attachment not found",
+        });
+      }
+
+      if (
+        attachment.processingStatus !==
+        "completed"
+      ) {
+        return res.status(400).json({
+          error:
+            "OCR processing must be completed before chunking",
+        });
+      }
+
+      if (
+        attachment.ocrMode !==
+        "asynchronous"
+      ) {
+        return res.status(400).json({
+          error:
+            "This endpoint is intended for asynchronously processed manuals",
+        });
+      }
+
+      if (
+        !Array.isArray(
+          attachment.ocrPages,
+        ) ||
+        attachment.ocrPages.length === 0
+      ) {
+        return res.status(400).json({
+          error:
+            "No OCR pages found for this attachment",
+        });
+      }
+
+      const chunks =
+        buildManualChunks({
+          attachment,
+        });
+
+      return res.status(200).json({
+        attachmentId:
+          attachment._id,
+
+        fileName:
+          attachment.originalName,
+
+        pageCount:
+          attachment.pageCount,
+
+        totalChunks:
+          chunks.length,
+
+        /*
+         * Return only a few chunks.
+         * Do NOT return 100+ pages in Postman.
+         */
+        sampleChunks:
+          chunks.slice(0, 10),
+      });
+    } catch (error) {
+      console.error(
+        "Preview manual chunks error:",
+        error,
+      );
+
+      return res.status(500).json({
+        error:
+          error.message ||
+          "Could not chunk manual",
+      });
+    }
+  };

@@ -14,6 +14,7 @@ import {
   startAttachmentMultiPageOcr,
   uploadTestAttachments,
 } from "../controllers/attachment.controller.js";
+import {previewManualChunks} from "../controllers/manualChunking.controller.js";
 
 const router = express.Router();
 
@@ -78,6 +79,13 @@ router.get(
   "/:id/download-url",
   protect,
   getAttachmentDownloadUrl,
+);
+
+router.get(
+  "/:id/manual-chunks/preview",
+  protect,
+  authorizeRoles("manager"),
+  previewManualChunks,
 );
 
 export default router;
