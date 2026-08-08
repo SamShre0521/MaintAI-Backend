@@ -13,8 +13,8 @@ import {
   processAttachmentOcr,
   startAttachmentMultiPageOcr,
   uploadTestAttachments,
+  previewManualChunks,
 } from "../controllers/attachment.controller.js";
-import {previewManualChunks} from "../controllers/manualChunking.controller.js";
 
 const router = express.Router();
 
