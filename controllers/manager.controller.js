@@ -114,6 +114,7 @@ export const reviewFeedback = async (req, res) => {
 
     const notification = await Notification.create({
       userId: feedback.userId,
+      companyId: req.user.companyId,
 
       type: isApproved ? "feedback_approved" : "feedback_rejected",
 
