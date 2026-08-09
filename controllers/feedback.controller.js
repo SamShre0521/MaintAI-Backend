@@ -149,6 +149,7 @@ export const resubmitFeedback = async (req, res) => {
         message: "An engineer revised and resubmitted a rejected solution.",
         feedbackId: feedback._id,
         sessionId: feedback.sessionId,
+        companyId: req.user.companyId,
         isRead: false,
       });
 
