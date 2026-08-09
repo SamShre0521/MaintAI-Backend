@@ -50,6 +50,7 @@ export const submitFeedback = async (req, res) => {
     for (const manager of managers) {
       const notification = await Notification.create({
         userId: manager._id,
+        companyId: req.user.companyId,
         type: "feedback_submitted",
         title: "New solution submitted",
         message: `${req.user.name || "An engineer"} submitted a solution for review.`,
