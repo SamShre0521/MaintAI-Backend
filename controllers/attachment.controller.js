@@ -1,30 +1,25 @@
+import Session from "../models/session.model.js";
+import { saveUploadedAttachments } from "../services/attachment.service.js";
+import { processDocument } from "../services/documentProcessing.service.js";
 import Machine from "../models/machine.model.js";
-import {
-  extractSinglePageText,
-} from "../services/ocr.service.js";
+import { extractSinglePageText } from "../services/ocr.service.js";
 
 import {
   uploadAttachmentToS3,
   generateAttachmentUrl,
+  readAttachmentBuffer,
 } from "../services/s3.service.js";
 
-import {
-  getAttachmentType,
-} from "../utils/attachment.util.js";
+import { getAttachmentType } from "../utils/attachment.util.js";
 import ChatAttachment from "../models/chatAttachment.model.js";
 
 import {
   getMultiPageOcrResult,
   startMultiPageOcr,
 } from "../services/asyncOcr.service.js";
-import {
-  buildManualChunks,
-} from "../services/manualChunking.service.js";
+import { buildManualChunks } from "../services/manualChunking.service.js";
 import { ingestManualToPinecone } from "../services/manualIngestion.service.js";
-export const uploadTestAttachments = async (
-  req,
-  res,
-) => {
+export const uploadTestAttachments = async (req, res) => {
   try {
     const { machineId, sessionId } = req.body;
 
@@ -45,79 +40,68 @@ export const uploadTestAttachments = async (
     const machine = await Machine.findOne({
       _id: machineId,
       companyId,
+      department: req.user.department,
     });
 
     if (!machine) {
       return res.status(404).json({
-        error:
-          "Machine not found or does not belong to your company",
+        error: "Machine not found or does not belong to your company",
       });
     }
 
-    const attachments = [];
-
-    for (const file of req.files) {
-      const attachmentType =
-        getAttachmentType(file);
-
-      const uploaded = await uploadAttachmentToS3({
-        file,
-        companyId,
-        machineId,
+    if (
+      sessionId &&
+      !(await Session.exists({
         sessionId,
-      });
-
-      const attachment =
-        await ChatAttachment.create({
-          companyId,
-          machineId,
-          sessionId: sessionId || "",
-          uploadedBy: req.user._id,
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          attachmentType,
-          size: file.size,
-          s3Bucket: uploaded.bucket,
-          s3Key: uploaded.key,
-          processingStatus: "uploaded",
-          knowledgeStatus: "temporary",
-        });
-
-      attachments.push(attachment);
+        companyId,
+        userId: req.user._id,
+        machineId,
+      }))
+    )
+      return res.status(404).json({ error: "Session not found" });
+    const saved = await saveUploadedAttachments({
+      files: req.files,
+      companyId,
+      machineId,
+      sessionId: sessionId || "",
+      uploadedBy: req.user._id,
+    });
+    const attachments = [];
+    for (let index = 0; index < saved.length; index++) {
+      try {
+        attachments.push(
+          await processDocument({
+            attachment: saved[index],
+            file: req.files[index],
+          }),
+        );
+      } catch {
+        attachments.push(await ChatAttachment.findById(saved[index]._id));
+      }
     }
 
     return res.status(201).json({
-      message:
-        "Attachments uploaded successfully",
+      message: "Attachments uploaded successfully",
       count: attachments.length,
       attachments,
     });
   } catch (error) {
-    console.error(
-      "Upload attachments error:",
-      error,
-    );
+    console.error("Upload attachments error:", error);
 
     return res.status(500).json({
-      error:
-        error.message ||
-        "Failed to upload attachments",
+      error: error.message || "Failed to upload attachments",
     });
   }
 };
 
-export const getAttachmentDownloadUrl = async (
-  req,
-  res,
-) => {
+export const getAttachmentDownloadUrl = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const attachment =
-      await ChatAttachment.findOne({
-        _id: id,
-        companyId: req.user.companyId,
-      });
+    const attachment = await ChatAttachment.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+    });
 
     if (!attachment) {
       return res.status(404).json({
@@ -125,9 +109,7 @@ export const getAttachmentDownloadUrl = async (
       });
     }
 
-    const url = await generateAttachmentUrl(
-      attachment.s3Key,
-    );
+    const url = await generateAttachmentUrl(attachment.s3Key);
 
     return res.status(200).json({
       attachmentId: attachment._id,
@@ -137,29 +119,48 @@ export const getAttachmentDownloadUrl = async (
       expiresInSeconds: 300,
     });
   } catch (error) {
-    console.error(
-      "Get attachment URL error:",
-      error,
-    );
+    console.error("Get attachment URL error:", error);
 
     return res.status(500).json({
-      error:
-        "Failed to generate attachment URL",
+      error: "Failed to generate attachment URL",
     });
   }
 };
-export const processAttachmentOcr = async (
-  req,
-  res,
-) => {
+export const processAttachmentOcr = async (req, res) => {
+  try {
+    const attachment = await ChatAttachment.findOne({
+      _id: req.params.id,
+      companyId: req.user.companyId,
+    });
+    if (!attachment)
+      return res.status(404).json({ error: "Attachment not found" });
+    if (attachment.processingStatus === "completed")
+      return res.json({ attachment });
+    const file = attachment.textractJobId
+      ? undefined
+      : {
+          buffer: await readAttachmentBuffer(attachment),
+          mimetype: attachment.mimeType,
+          originalname: attachment.originalName,
+        };
+    const processed = await processDocument({ attachment, file });
+    return res
+      .status(processed.processingStatus === "processing" ? 202 : 200)
+      .json({ attachment: processed });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Could not process document" });
+  }
+};
+
+export const startAttachmentMultiPageOcr = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const attachment =
-      await ChatAttachment.findOne({
-        _id: id,
-        companyId: req.user.companyId,
-      });
+    const attachment = await ChatAttachment.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+    });
 
     if (!attachment) {
       return res.status(404).json({
@@ -167,91 +168,71 @@ export const processAttachmentOcr = async (
       });
     }
 
-    const supportedTypes = new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ]);
+    const supportedMimeTypes = new Set(["application/pdf", "image/tiff"]);
 
-    if (!supportedTypes.has(attachment.mimeType)) {
+    if (!supportedMimeTypes.has(attachment.mimeType)) {
       return res.status(400).json({
-        error:
-          "OCR is currently supported only for JPG, PNG and PDF files",
+        error: "Multi-page OCR supports PDF and TIFF files only",
       });
     }
 
-    /*
-     * Do not send WEBP to Textract.
-     * Your upload middleware supports WEBP,
-     * but Textract officially supports JPEG,
-     * PNG, TIFF and PDF.
-     */
-    if (attachment.mimeType === "image/webp") {
-      return res.status(400).json({
-        error:
-          "WEBP must be converted to PNG or JPEG before OCR",
-      });
-    }
-
-    if (attachment.processingStatus === "processing") {
+    if (
+      attachment.processingStatus === "processing" &&
+      attachment.textractJobId
+    ) {
       return res.status(409).json({
-        error:
-          "This attachment is already being processed",
+        error: "OCR is already processing",
+        jobId: attachment.textractJobId,
       });
     }
 
-    await ChatAttachment.updateOne(
+    if (
+      attachment.processingStatus === "completed" &&
+      attachment.ocrMode === "asynchronous" &&
+      attachment.extractedText?.trim()
+    ) {
+      return res.status(409).json({
+        error: "This attachment has already been processed",
+      });
+    }
+
+    const { jobId } = await startMultiPageOcr({
+      bucket: attachment.s3Bucket,
+      key: attachment.s3Key,
+      jobTag: `maintai-${attachment._id}`,
+    });
+
+    const updatedAttachment = await ChatAttachment.findOneAndUpdate(
       {
         _id: attachment._id,
         companyId: req.user.companyId,
       },
       {
         $set: {
+          textractJobId: jobId,
+          ocrMode: "asynchronous",
           processingStatus: "processing",
           processingError: "",
+          extractedText: "",
+          ocrPages: [],
+          pageCount: 0,
+          ocrStartedAt: new Date(),
+          ocrCompletedAt: null,
         },
+      },
+      {
+        returnDocument: "after",
       },
     );
 
-    const result = await extractSinglePageText({
-      bucket: attachment.s3Bucket,
-      key: attachment.s3Key,
-    });
-
-    const updatedAttachment =
-      await ChatAttachment.findOneAndUpdate(
-        {
-          _id: attachment._id,
-          companyId: req.user.companyId,
-        },
-        {
-          $set: {
-            extractedText: result.extractedText,
-            processingStatus: "completed",
-            processingError: "",
-          },
-        },
-        {
-          returnDocument: "after",
-        },
-      );
-
-    return res.status(200).json({
-      message: "OCR completed successfully",
-      attachment: {
-        id: updatedAttachment._id,
-        originalName:
-          updatedAttachment.originalName,
-        processingStatus:
-          updatedAttachment.processingStatus,
-        extractedText:
-          updatedAttachment.extractedText,
-        blockCount: result.blockCount,
-      },
+    return res.status(202).json({
+      message: "Multi-page OCR started",
+      attachmentId: updatedAttachment._id,
+      jobId,
+      processingStatus: updatedAttachment.processingStatus,
     });
   } catch (error) {
-    console.error("Attachment OCR error:", error);
+    console.error("Start multi-page OCR error:", error);
 
     await ChatAttachment.updateOne(
       {
@@ -261,525 +242,274 @@ export const processAttachmentOcr = async (
       {
         $set: {
           processingStatus: "failed",
-          processingError:
-            error.message || "OCR processing failed",
+          processingError: error.message || "Could not start OCR",
         },
       },
-    ).catch((updateError) => {
-      console.error(
-        "Could not update OCR failure status:",
-        updateError,
-      );
-    });
+    ).catch(() => {});
 
     return res.status(500).json({
-      error:
-        error.message || "OCR processing failed",
+      error: error.message || "Could not start multi-page OCR",
     });
   }
 };
 
+export const checkAttachmentMultiPageOcr = async (req, res) => {
+  const { id } = req.params;
 
-export const startAttachmentMultiPageOcr =
-  async (req, res) => {
-    const { id } = req.params;
+  try {
+    const attachment = await ChatAttachment.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+    });
 
-    try {
-      const attachment =
-        await ChatAttachment.findOne({
-          _id: id,
-          companyId: req.user.companyId,
-        });
-
-      if (!attachment) {
-        return res.status(404).json({
-          error: "Attachment not found",
-        });
-      }
-
-      const supportedMimeTypes = new Set([
-        "application/pdf",
-        "image/tiff",
-      ]);
-
-      if (
-        !supportedMimeTypes.has(
-          attachment.mimeType,
-        )
-      ) {
-        return res.status(400).json({
-          error:
-            "Multi-page OCR supports PDF and TIFF files only",
-        });
-      }
-
-      if (
-        attachment.processingStatus ===
-          "processing" &&
-        attachment.textractJobId
-      ) {
-        return res.status(409).json({
-          error:
-            "OCR is already processing",
-          jobId:
-            attachment.textractJobId,
-        });
-      }
-
-      if (
-        attachment.processingStatus ===
-          "completed" &&
-        attachment.ocrMode ===
-          "asynchronous" &&
-        attachment.extractedText?.trim()
-      ) {
-        return res.status(409).json({
-          error:
-            "This attachment has already been processed",
-        });
-      }
-
-      const { jobId } =
-        await startMultiPageOcr({
-          bucket:
-            attachment.s3Bucket,
-          key: attachment.s3Key,
-          jobTag:
-            `maintai-${attachment._id}`,
-        });
-
-      const updatedAttachment =
-        await ChatAttachment.findOneAndUpdate(
-          {
-            _id: attachment._id,
-            companyId:
-              req.user.companyId,
-          },
-          {
-            $set: {
-              textractJobId: jobId,
-              ocrMode: "asynchronous",
-              processingStatus:
-                "processing",
-              processingError: "",
-              extractedText: "",
-              ocrPages: [],
-              pageCount: 0,
-              ocrStartedAt: new Date(),
-              ocrCompletedAt: null,
-            },
-          },
-          {
-            returnDocument: "after",
-          },
-        );
-
-      return res.status(202).json({
-        message:
-          "Multi-page OCR started",
-        attachmentId:
-          updatedAttachment._id,
-        jobId,
-        processingStatus:
-          updatedAttachment.processingStatus,
-      });
-    } catch (error) {
-      console.error(
-        "Start multi-page OCR error:",
-        error,
-      );
-
-      await ChatAttachment.updateOne(
-        {
-          _id: id,
-          companyId:
-            req.user.companyId,
-        },
-        {
-          $set: {
-            processingStatus: "failed",
-            processingError:
-              error.message ||
-              "Could not start OCR",
-          },
-        },
-      ).catch(() => {});
-
-      return res.status(500).json({
-        error:
-          error.message ||
-          "Could not start multi-page OCR",
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
       });
     }
-  };
 
+    if (!attachment.textractJobId) {
+      return res.status(400).json({
+        error: "No Textract job exists for this attachment",
+      });
+    }
 
-  export const checkAttachmentMultiPageOcr =
-  async (req, res) => {
-    const { id } = req.params;
-
-    try {
-      const attachment =
-        await ChatAttachment.findOne({
-          _id: id,
-          companyId: req.user.companyId,
-        });
-
-      if (!attachment) {
-        return res.status(404).json({
-          error: "Attachment not found",
-        });
-      }
-
-      if (
-        !attachment.textractJobId
-      ) {
-        return res.status(400).json({
-          error:
-            "No Textract job exists for this attachment",
-        });
-      }
-
-      if (
-        attachment.processingStatus ===
-          "completed" &&
-        attachment.extractedText?.trim()
-      ) {
-        return res.status(200).json({
-          message:
-            "Multi-page OCR already completed",
-          attachment: {
-            id: attachment._id,
-            processingStatus:
-              attachment.processingStatus,
-            pageCount:
-              attachment.pageCount,
-            extractedTextLength:
-              attachment.extractedText.length,
-            pages:
-              attachment.ocrPages,
-          },
-        });
-      }
-
-      const result =
-        await getMultiPageOcrResult({
-          jobId:
-            attachment.textractJobId,
-        });
-
-      if (
-        result.status ===
-        "IN_PROGRESS"
-      ) {
-        return res.status(202).json({
-          message:
-            "Multi-page OCR is still processing",
-          attachmentId:
-            attachment._id,
-          processingStatus:
-            "processing",
-        });
-      }
-
-      if (
-        result.status === "FAILED"
-      ) {
-        const failedAttachment =
-          await ChatAttachment.findOneAndUpdate(
-            {
-              _id: attachment._id,
-              companyId:
-                req.user.companyId,
-            },
-            {
-              $set: {
-                processingStatus:
-                  "failed",
-                processingError:
-                  result.statusMessage ||
-                  "Textract OCR failed",
-              },
-            },
-            {
-              returnDocument: "after",
-            },
-          );
-
-        return res.status(500).json({
-          error:
-            failedAttachment.processingError,
-        });
-      }
-
-      const updatedAttachment =
-        await ChatAttachment.findOneAndUpdate(
-          {
-            _id: attachment._id,
-            companyId:
-              req.user.companyId,
-          },
-          {
-            $set: {
-              processingStatus:
-                "completed",
-              processingError: "",
-              ocrMode:
-                "asynchronous",
-              extractedText:
-                result.extractedText,
-              ocrPages:
-                result.pages,
-              pageCount:
-                result.pageCount,
-              ocrCompletedAt:
-                new Date(),
-            },
-          },
-          {
-            returnDocument: "after",
-          },
-        );
-
+    if (
+      attachment.processingStatus === "completed" &&
+      attachment.extractedText?.trim()
+    ) {
       return res.status(200).json({
-        message:
-          "Multi-page OCR completed successfully",
-
+        message: "Multi-page OCR already completed",
         attachment: {
-          id:
-            updatedAttachment._id,
-          originalName:
-            updatedAttachment.originalName,
-          processingStatus:
-            updatedAttachment.processingStatus,
-          pageCount:
-            updatedAttachment.pageCount,
-          extractedTextLength:
-            updatedAttachment.extractedText
-              .length,
-          blockCount:
-            result.blockCount,
-          pages:
-            updatedAttachment.ocrPages.map(
-              (page) => ({
-                pageNumber:
-                  page.pageNumber,
-                lineCount:
-                  page.lineCount,
-                textLength:
-                  page.text.length,
-              }),
-            ),
+          id: attachment._id,
+          processingStatus: attachment.processingStatus,
+          pageCount: attachment.pageCount,
+          extractedTextLength: attachment.extractedText.length,
+          pages: attachment.ocrPages,
         },
       });
-    } catch (error) {
-      console.error(
-        "Check multi-page OCR error:",
-        error,
-      );
+    }
 
-      await ChatAttachment.updateOne(
+    const result = await getMultiPageOcrResult({
+      jobId: attachment.textractJobId,
+    });
+
+    if (result.status === "IN_PROGRESS") {
+      return res.status(202).json({
+        message: "Multi-page OCR is still processing",
+        attachmentId: attachment._id,
+        processingStatus: "processing",
+      });
+    }
+
+    if (result.status === "FAILED") {
+      const failedAttachment = await ChatAttachment.findOneAndUpdate(
         {
-          _id: id,
-          companyId:
-            req.user.companyId,
+          _id: attachment._id,
+          companyId: req.user.companyId,
         },
         {
           $set: {
             processingStatus: "failed",
-            processingError:
-              error.message ||
-              "Could not retrieve OCR results",
+            processingError: result.statusMessage || "Textract OCR failed",
           },
         },
-      ).catch(() => {});
-
-      return res.status(500).json({
-        error:
-          error.message ||
-          "Could not retrieve OCR results",
-      });
-    }
-  };
-
-
-export const previewManualChunks =
-  async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const attachment =
-        await ChatAttachment.findOne({
-          _id: id,
-          companyId:
-            req.user.companyId,
-        });
-
-      if (!attachment) {
-        return res.status(404).json({
-          error: "Attachment not found",
-        });
-      }
-
-      if (
-        attachment.processingStatus !==
-        "completed"
-      ) {
-        return res.status(400).json({
-          error:
-            "OCR processing must be completed before chunking",
-        });
-      }
-
-      if (
-        attachment.ocrMode !==
-        "asynchronous"
-      ) {
-        return res.status(400).json({
-          error:
-            "This endpoint is intended for asynchronously processed manuals",
-        });
-      }
-
-      if (
-        !Array.isArray(
-          attachment.ocrPages,
-        ) ||
-        attachment.ocrPages.length === 0
-      ) {
-        return res.status(400).json({
-          error:
-            "No OCR pages found for this attachment",
-        });
-      }
-
-      const chunks =
-        buildManualChunks({
-          attachment,
-        });
-
-      return res.status(200).json({
-        attachmentId:
-          attachment._id,
-
-        fileName:
-          attachment.originalName,
-
-        pageCount:
-          attachment.pageCount,
-
-        totalChunks:
-          chunks.length,
-
-        /*
-         * Return only a few chunks.
-         * Do NOT return 100+ pages in Postman.
-         */
-        sampleChunks:
-          chunks.slice(0, 10),
-      });
-    } catch (error) {
-      console.error(
-        "Preview manual chunks error:",
-        error,
+        {
+          returnDocument: "after",
+        },
       );
 
       return res.status(500).json({
-        error:
-          error.message ||
-          "Could not chunk manual",
+        error: failedAttachment.processingError,
       });
     }
-  };
 
+    const updatedAttachment = await ChatAttachment.findOneAndUpdate(
+      {
+        _id: attachment._id,
+        companyId: req.user.companyId,
+      },
+      {
+        $set: {
+          processingStatus: "completed",
+          processingError: "",
+          ocrMode: "asynchronous",
+          extractedText: result.extractedText,
+          ocrPages: result.pages,
+          pageCount: result.pageCount,
+          ocrCompletedAt: new Date(),
+        },
+      },
+      {
+        returnDocument: "after",
+      },
+    );
 
-  export const ingestManualKnowledge =
-  async (req, res) => {
-    try {
-      const { id } = req.params;
+    return res.status(200).json({
+      message: "Multi-page OCR completed successfully",
 
-      const attachment =
-        await ChatAttachment.findOne({
-          _id: id,
-          companyId:
-            req.user.companyId,
-        });
+      attachment: {
+        id: updatedAttachment._id,
+        originalName: updatedAttachment.originalName,
+        processingStatus: updatedAttachment.processingStatus,
+        pageCount: updatedAttachment.pageCount,
+        extractedTextLength: updatedAttachment.extractedText.length,
+        blockCount: result.blockCount,
+        pages: updatedAttachment.ocrPages.map((page) => ({
+          pageNumber: page.pageNumber,
+          lineCount: page.lineCount,
+          textLength: page.text.length,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Check multi-page OCR error:", error);
 
-      if (!attachment) {
-        return res.status(404).json({
-          error:
-            "Attachment not found",
-        });
-      }
+    await ChatAttachment.updateOne(
+      {
+        _id: id,
+        companyId: req.user.companyId,
+      },
+      {
+        $set: {
+          processingStatus: "failed",
+          processingError: error.message || "Could not retrieve OCR results",
+        },
+      },
+    ).catch(() => {});
 
-      if (
-        attachment.processingStatus !==
-        "completed"
-      ) {
-        return res.status(400).json({
-          error:
-            "OCR must be completed before manual ingestion",
-        });
-      }
+    return res.status(500).json({
+      error: error.message || "Could not retrieve OCR results",
+    });
+  }
+};
 
-      if (
-        !Array.isArray(
-          attachment.ocrPages,
-        ) ||
-        attachment.ocrPages.length === 0
-      ) {
-        return res.status(400).json({
-          error:
-            "No OCR pages available for ingestion",
-        });
-      }
+export const previewManualChunks = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-      const result =
-        await ingestManualToPinecone({
-          attachment,
-        });
+    const attachment = await ChatAttachment.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
+      });
+    }
+
+    if (attachment.processingStatus !== "completed") {
+      return res.status(400).json({
+        error: "OCR processing must be completed before chunking",
+      });
+    }
+
+    if (attachment.ocrMode !== "asynchronous") {
+      return res.status(400).json({
+        error: "This endpoint is intended for asynchronously processed manuals",
+      });
+    }
+
+    if (
+      !Array.isArray(attachment.ocrPages) ||
+      attachment.ocrPages.length === 0
+    ) {
+      return res.status(400).json({
+        error: "No OCR pages found for this attachment",
+      });
+    }
+
+    const chunks = buildManualChunks({
+      attachment,
+    });
+
+    return res.status(200).json({
+      attachmentId: attachment._id,
+
+      fileName: attachment.originalName,
+
+      pageCount: attachment.pageCount,
+
+      totalChunks: chunks.length,
 
       /*
-       * Mark permanent only AFTER Pinecone
-       * ingestion has completed successfully.
+       * Return only a few chunks.
+       * Do NOT return 100+ pages in Postman.
        */
-      attachment.knowledgeStatus =
-        "permanent";
+      sampleChunks: chunks.slice(0, 10),
+    });
+  } catch (error) {
+    console.error("Preview manual chunks error:", error);
 
-      await attachment.save();
+    return res.status(500).json({
+      error: error.message || "Could not chunk manual",
+    });
+  }
+};
 
-      return res.status(200).json({
-        message:
-          "Machine manual successfully added to knowledge base",
+export const ingestManualKnowledge = async (req, res) => {
+  try {
+    const { id } = req.params;
 
-        attachmentId:
-          attachment._id,
+    const attachment = await ChatAttachment.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+    });
 
-        machineId:
-          attachment.machineId,
-
-        pageCount:
-          attachment.pageCount,
-
-        totalChunks:
-          result.totalChunks,
-
-        totalUpserted:
-          result.totalUpserted,
-
-        knowledgeStatus:
-          attachment.knowledgeStatus,
-      });
-    } catch (error) {
-      console.error(
-        "Manual ingestion error:",
-        error,
-      );
-
-      return res.status(500).json({
-        error:
-          error.message ||
-          "Could not ingest machine manual",
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
       });
     }
-  };
+
+    if (attachment.processingStatus !== "completed") {
+      return res.status(400).json({
+        error: "OCR must be completed before manual ingestion",
+      });
+    }
+
+    if (
+      !Array.isArray(attachment.ocrPages) ||
+      attachment.ocrPages.length === 0
+    ) {
+      return res.status(400).json({
+        error: "No OCR pages available for ingestion",
+      });
+    }
+
+    const result = await ingestManualToPinecone({
+      attachment,
+    });
+
+    /*
+     * Mark permanent only AFTER Pinecone
+     * ingestion has completed successfully.
+     */
+    attachment.knowledgeStatus = "permanent";
+
+    await attachment.save();
+
+    return res.status(200).json({
+      message: "Machine manual successfully added to knowledge base",
+
+      attachmentId: attachment._id,
+
+      machineId: attachment.machineId,
+
+      pageCount: attachment.pageCount,
+
+      totalChunks: result.totalChunks,
+
+      totalUpserted: result.totalUpserted,
+
+      knowledgeStatus: attachment.knowledgeStatus,
+    });
+  } catch (error) {
+    console.error("Manual ingestion error:", error);
+
+    return res.status(500).json({
+      error: error.message || "Could not ingest machine manual",
+    });
+  }
+};

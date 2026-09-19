@@ -4,11 +4,12 @@ export const getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({
       userId: req.user._id,
+      companyId: req.user.companyId,
     })
       .populate({
         path: "feedbackId",
         select:
-          "sessionId question answer managerStatus managerComment department createdAt updatedAt",
+          "sessionId question answer managerStatus managerComment department engineerFeedback revisionNumber resubmittedAt createdAt updatedAt",
       })
       .sort({
         createdAt: -1,
@@ -31,37 +32,16 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// export const getUnreadNotificationCount = async (
-//   req,
-//   res,
-// ) => {
-//   try {
-//     const count = await Notification.countDocuments({
-//       userId: req.user._id,
-//       isRead: false,
-//     });
-
-//     return res.status(200).json({
-//       count,
-//     });
-//   } catch (error) {
-//     console.error("Get unread count error:", error);
-
-//     return res.status(500).json({
-//       error: "Something went wrong",
-//     });
-//   }
-// };
-
 export const getNotificationById = async (req, res) => {
   try {
     const notification = await Notification.findOne({
       _id: req.params.notificationId,
       userId: req.user._id,
+      companyId: req.user.companyId,
     }).populate({
       path: "feedbackId",
       select:
-        "sessionId question answer managerStatus managerComment department createdAt updatedAt",
+        "sessionId question answer managerStatus managerComment department engineerFeedback revisionNumber resubmittedAt createdAt updatedAt",
     });
 
     if (!notification) {
@@ -88,24 +68,21 @@ export const getNotificationById = async (req, res) => {
   }
 };
 
-export const markNotificationAsRead = async (
-  req,
-  res,
-) => {
+export const markNotificationAsRead = async (req, res) => {
   try {
-    const notification =
-      await Notification.findOneAndUpdate(
-        {
-          _id: req.params.notificationId,
-          userId: req.user._id,
-        },
-        {
-          isRead: true,
-        },
-        {
-          returnDocument: "after",
-        },
-      );
+    const notification = await Notification.findOneAndUpdate(
+      {
+        _id: req.params.notificationId,
+        userId: req.user._id,
+        companyId: req.user.companyId,
+      },
+      {
+        isRead: true,
+      },
+      {
+        returnDocument: "after",
+      },
+    );
 
     if (!notification) {
       return res.status(404).json({
@@ -125,13 +102,11 @@ export const markNotificationAsRead = async (
     });
   }
 };
-export const getUnreadNotificationCount = async (
-  req,
-  res,
-) => {
+export const getUnreadNotificationCount = async (req, res) => {
   try {
     const count = await Notification.countDocuments({
       userId: req.user._id,
+      companyId: req.user.companyId,
       isRead: false,
     });
 
@@ -139,10 +114,7 @@ export const getUnreadNotificationCount = async (
       unreadCount: count,
     });
   } catch (error) {
-    console.error(
-      "Get unread notification count error:",
-      error,
-    );
+    console.error("Get unread notification count error:", error);
 
     return res.status(500).json({
       error: "Failed to load unread count",
@@ -150,14 +122,12 @@ export const getUnreadNotificationCount = async (
   }
 };
 
-export const markAllNotificationsAsRead = async (
-  req,
-  res,
-) => {
+export const markAllNotificationsAsRead = async (req, res) => {
   try {
     const result = await Notification.updateMany(
       {
         userId: req.user._id,
+        companyId: req.user.companyId,
         isRead: false,
       },
       {

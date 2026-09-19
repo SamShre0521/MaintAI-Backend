@@ -2,6 +2,13 @@ import mongoose from "mongoose";
 
 const knowledgeBaseSchema = new mongoose.Schema(
   {
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    isActive: { type: Boolean, default: true },
+    machineId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Machine",
+      index: true,
+    },
     question: {
       type: String,
       required: true,
@@ -49,6 +56,8 @@ const knowledgeBaseSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+knowledgeBaseSchema.index({ companyId: 1, machineId: 1, updatedAt: -1 });
 
 const KnowledgeBase = mongoose.model("KnowledgeBase", knowledgeBaseSchema);
 

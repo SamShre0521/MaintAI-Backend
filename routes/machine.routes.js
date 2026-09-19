@@ -1,6 +1,7 @@
 import express from "express";
 import {
   addMachine,
+  addMachineDocuments,
   getMachines,
   getMachineById,
   deleteMachine,
@@ -15,10 +16,15 @@ router.post(
   protect,
   authorizeRoles("manager"),
   uploadMachineFiles.array("files", 5),
-  addMachine
+  addMachine,
 );
 
-router.get("/machines", protect, authorizeRoles("engineer","manager"), getMachines);
+router.get(
+  "/machines",
+  protect,
+  authorizeRoles("engineer", "manager"),
+  getMachines,
+);
 
 router.get("/machines/:id", protect, authorizeRoles("manager"), getMachineById);
 
@@ -26,7 +32,15 @@ router.delete(
   "/machines/:id",
   protect,
   authorizeRoles("manager"),
-  deleteMachine
+  deleteMachine,
+);
+
+router.post(
+  "/machines/:id/documents",
+  protect,
+  authorizeRoles("manager"),
+  uploadMachineFiles.array("files", 5),
+  addMachineDocuments,
 );
 
 export default router;

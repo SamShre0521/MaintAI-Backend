@@ -13,6 +13,8 @@ export const uploadAttachments = multer({
       // Documents
       "application/pdf",
       "text/plain",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 
       // Excel
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -28,7 +30,7 @@ export const uploadAttachments = multer({
     if (!allowedTypes.includes(file.mimetype)) {
       return cb(
         new Error(
-          "Only PDF, TXT, XLS, XLSX, JPG, JPEG, PNG and WEBP files are allowed.",
+          "Only PDF, DOC, DOCX, TXT, XLS, XLSX, JPG, JPEG, PNG and WEBP files are allowed.",
         ),
       );
     }

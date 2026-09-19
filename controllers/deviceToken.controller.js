@@ -4,7 +4,7 @@ export const registerDeviceToken = async (req, res) => {
   try {
     const { token, platform } = req.body;
 
-    if (!token || !platform) {
+    if (typeof token !== "string" || !token.trim() || !platform) {
       return res.status(400).json({
         error: "token and platform are required",
       });
@@ -16,6 +16,11 @@ export const registerDeviceToken = async (req, res) => {
       });
     }
 
+    // A shared Android device must deliver notifications to its currently logged-in user.
+    await User.updateMany(
+      { _id: { $ne: req.user._id }, "deviceTokens.token": token },
+      { $pull: { deviceTokens: { token } } },
+    );
     const user = await User.findById(req.user._id);
 
     if (!user) {

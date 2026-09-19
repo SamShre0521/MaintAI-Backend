@@ -1,3 +1,6 @@
+import Session from "../models/session.model.js";
+import { sendReviewEmail } from "../services/email.service.js";
+import { validSolutionText } from "../utils/solutionValidation.util.js";
 import Feedback from "../models/feedback.model.js";
 import KnowledgeBase from "../models/knowledgeBase.model.js";
 import { upsertKnowledgeToVectorDB } from "../services/vector.service.js";
@@ -21,10 +24,11 @@ export const getPendingFeedback = async (req, res) => {
   try {
     const feedbacks = await Feedback.find({
       managerStatus: "pending",
+      companyId: req.user.companyId,
       department: req.user.department,
     })
       .populate("userId", "name email role")
-      .sort({ createdAt: -1 });
+      .sort({ updatedAt: -1 });
 
     console.log("User : " + req.user);
     console.log("Feedback For Manager : " + feedbacks);
@@ -49,9 +53,51 @@ export const reviewFeedback = async (req, res) => {
       });
     }
 
+    const pending = await Feedback.findOne({
+      _id: id,
+      companyId: req.user.companyId,
+      department: req.user.department,
+      managerStatus: "pending",
+    });
+    if (!pending)
+      return res
+        .status(409)
+        .json({
+          error: "Feedback is no longer pending. Refresh the review queue.",
+        });
+    if (
+      managerStatus === "approved" &&
+      (!validSolutionText(pending.question) ||
+        !validSolutionText(pending.answer))
+    )
+      return res
+        .status(400)
+        .json({
+          error: "A non-empty, appropriate question and solution are required",
+        });
+    if (
+      req.body.revisionNumber !== undefined &&
+      Number(req.body.revisionNumber) !== pending.revisionNumber
+    )
+      return res
+        .status(409)
+        .json({ error: "The solution was revised. Refresh before reviewing." });
+    const session = await Session.findOne({
+      sessionId: pending.sessionId,
+      userId: pending.userId,
+      companyId: req.user.companyId,
+    });
+    const machineId = pending.machineId || session?.machineId;
+    if (managerStatus === "approved" && !machineId)
+      return res
+        .status(400)
+        .json({ error: "The submission has no associated machine" });
     const feedback = await Feedback.findOneAndUpdate(
       {
         _id: id,
+        managerStatus: "pending",
+        revisionNumber: pending.revisionNumber,
+        companyId: req.user.companyId,
         department: req.user.department,
       },
       {
@@ -74,25 +120,43 @@ export const reviewFeedback = async (req, res) => {
 
     let vectorStored = false;
     if (managerStatus === "approved") {
-      knowledge = await KnowledgeBase.findOneAndUpdate(
-        {
-          sourceFeedbackId: feedback._id,
-        },
-        {
-          question: feedback.question,
-          answer: feedback.answer,
-          department: feedback.department,
-          sourceFeedbackId: feedback._id,
-          approvedBy: req.user._id,
-          machineName: machineName || "",
-          issueType: issueType || "",
-          tags: Array.isArray(tags) ? tags : [],
-        },
-        {
-          returnDocument: "after",
-          upsert: true,
-        },
-      );
+      try {
+        knowledge = await KnowledgeBase.findOneAndUpdate(
+          {
+            sourceFeedbackId: feedback._id,
+          },
+          {
+            companyId: req.user.companyId,
+            machineId,
+            uploadedBy: feedback.userId,
+            isActive: true,
+            question: feedback.question,
+            answer: feedback.answer,
+            department: feedback.department,
+            sourceFeedbackId: feedback._id,
+            approvedBy: req.user._id,
+            machineName: machineName || "",
+            issueType: issueType || "",
+            tags: Array.isArray(tags) ? tags : [],
+          },
+          {
+            returnDocument: "after",
+            upsert: true,
+            runValidators: true,
+          },
+        );
+      } catch (error) {
+        await Feedback.updateOne(
+          {
+            _id: feedback._id,
+            companyId: req.user.companyId,
+            managerStatus: "approved",
+            revisionNumber: feedback.revisionNumber,
+          },
+          { $set: { managerStatus: "pending", approvedBy: null } },
+        );
+        throw error;
+      }
 
       try {
         await upsertKnowledgeToVectorDB(knowledge);
@@ -134,30 +198,6 @@ export const reviewFeedback = async (req, res) => {
       failureCount: 0,
     };
 
-    // try {
-    //   pushResult =
-    //     await sendPushNotificationToUser({
-    //       userId: feedback.userId,
-
-    //       title: notification.title,
-
-    //       body: notification.message,
-
-    //       data: {
-    //         type: notification.type,
-    //         notificationId:
-    //           notification._id.toString(),
-    //         feedbackId: feedback._id.toString(),
-    //         sessionId: feedback.sessionId,
-    //       },
-    //     });
-    // } catch (pushError) {
-    //   console.error(
-    //     "Feedback updated, but push delivery failed:",
-    //     pushError,
-    //   );
-    // }
-
     try {
       console.log("========== PUSH START ==========");
       console.log("Feedback ID:", feedback._id.toString());
@@ -173,6 +213,9 @@ export const reviewFeedback = async (req, res) => {
           notificationId: notification._id.toString(),
           feedbackId: feedback._id.toString(),
           sessionId: feedback.sessionId,
+          knowledgeId: knowledge?._id?.toString() || "",
+          screen: "solution_detail",
+          createdAt: notification.createdAt.toISOString(),
         },
       });
 
@@ -181,6 +224,12 @@ export const reviewFeedback = async (req, res) => {
     } catch (pushError) {
       console.error("Feedback updated, but push delivery failed:", pushError);
     }
+
+    const email = await sendReviewEmail({
+      userId: feedback.userId,
+      notification,
+      question: feedback.question,
+    });
 
     return res.status(200).json({
       message: isApproved
@@ -194,11 +243,12 @@ export const reviewFeedback = async (req, res) => {
         id: notification._id,
         type: notification.type,
         isRead: notification.isRead,
+        createdAt: notification.createdAt,
       },
 
       push: pushResult,
+      email,
     });
-    console.log("Push result:", pushResult);
   } catch (error) {
     console.error("Review feedback error:", error);
 
@@ -213,6 +263,7 @@ export const getDepartmentFeedback = async (req, res) => {
     const { status } = req.query;
 
     const filter = {
+      companyId: req.user.companyId,
       department: req.user.department,
     };
 
@@ -223,9 +274,10 @@ export const getDepartmentFeedback = async (req, res) => {
     const feedbacks = await Feedback.find(filter)
       .populate("userId", "name email role department")
       .populate("approvedBy", "name email role department")
-      .sort({ createdAt: -1 });
+      .sort({ updatedAt: -1 });
 
     res.json({
+      companyId: req.user.companyId,
       department: req.user.department,
       count: feedbacks.length,
       feedbacks,

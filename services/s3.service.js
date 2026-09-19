@@ -7,10 +7,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import crypto from "node:crypto";
 import path from "node:path";
 
-import {
-  s3Bucket,
-  s3Client,
-} from "../config/s3.js";
+import { s3Bucket, s3Client } from "../config/s3.js";
 function sanitizeFilename(filename) {
   const extension = path.extname(filename).toLowerCase();
 
@@ -45,17 +42,12 @@ export async function uploadChatAttachment({
   }
 
   if (!companyId || !machineId || !sessionId) {
-    throw new Error(
-      "companyId, machineId and sessionId are required",
-    );
+    throw new Error("companyId, machineId and sessionId are required");
   }
 
-  const safeFilename = sanitiseFilename(
-    file.originalname,
-  );
+  const safeFilename = sanitiseFilename(file.originalname);
 
-  const uniqueName =
-    `${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
+  const uniqueName = `${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
 
   const key = [
     "companies",
@@ -93,11 +85,7 @@ export async function uploadChatAttachment({
   };
 }
 
-
-export async function createAttachmentDownloadUrl(
-  key,
-  expiresInSeconds = 300,
-) {
+export async function createAttachmentDownloadUrl(key, expiresInSeconds = 300) {
   if (!key) {
     throw new Error("S3 object key is required");
   }
@@ -127,10 +115,7 @@ export async function deleteAttachment(key) {
   );
 }
 
-export async function generateAttachmentUrl(
-  key,
-  expiresIn = 300,
-) {
+export async function generateAttachmentUrl(key, expiresIn = 300) {
   return getSignedUrl(
     s3Client,
     new GetObjectCommand({
@@ -153,12 +138,9 @@ export async function uploadAttachmentToS3({
     throw new Error("Valid file is required");
   }
 
-  const safeFilename = sanitizeFilename(
-    file.originalname,
-  );
+  const safeFilename = sanitizeFilename(file.originalname);
 
-  const uniqueFilename =
-    `${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
+  const uniqueFilename = `${Date.now()}-${crypto.randomUUID()}-${safeFilename}`;
 
   const key = [
     "companies",
@@ -171,7 +153,7 @@ export async function uploadAttachmentToS3({
     uniqueFilename,
   ].join("/");
 
-   await s3Client.send(
+  await s3Client.send(
     new PutObjectCommand({
       Bucket: s3Bucket,
       Key: key,
@@ -189,4 +171,14 @@ export async function uploadAttachmentToS3({
     bucket: s3Bucket,
     key,
   };
+}
+
+export async function readAttachmentBuffer(attachment) {
+  const result = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: attachment.s3Bucket,
+      Key: attachment.s3Key,
+    }),
+  );
+  return Buffer.from(await result.Body.transformToByteArray());
 }

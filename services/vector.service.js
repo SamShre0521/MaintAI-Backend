@@ -16,13 +16,16 @@ Department: ${knowledge.department}
 `;
 
   const embedding = await createEmbeddings(textToEmbed);
-  
-  console.log("Embedding length:", embedding.length);
 
   const record = {
     id: knowledge._id.toString(),
     values: embedding,
     metadata: {
+      type: "knowledge_base",
+      companyId: knowledge.companyId.toString(),
+      machineId: knowledge.machineId.toString(),
+      uploadedBy: knowledge.uploadedBy?.toString() || "",
+      updatedAt: knowledge.updatedAt.toISOString(),
       knowledgeId: knowledge._id.toString(),
       question: knowledge.question || "",
       answer: knowledge.answer || "",
@@ -33,19 +36,9 @@ Department: ${knowledge.department}
     },
   };
 
-  // console.log("Pinecone record id:", record.id);
-  // console.log("Pinecone " , record);
+  await pineconeIndex.namespace("__default__").upsert({
+    records: [record],
+  });
 
-  // await pineconeIndex.namespace("__default__").upsert([record]);
-
-  // console.log("✅ Vector stored in Pinecone");
-
-
-  console.log("Pinecone ", record);
-
-await pineconeIndex.namespace("__default__").upsert({
-  records: [record],
-});
-
-console.log("✅ Vector stored in Pinecone");
+  console.log("✅ Vector stored in Pinecone");
 };

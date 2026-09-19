@@ -21,6 +21,13 @@ export function getAttachmentType(file) {
     return "text";
   }
 
+  if (
+    [
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ].includes(file.mimetype)
+  )
+    return "document";
   return "unknown";
 }
 
@@ -34,16 +41,8 @@ export function getAttachmentType(file) {
 //   return supportedMimeTypes.has(attachment.mimeType);
 // }
 
-export function supportsSynchronousOcr(
-  attachment,
-) {
-  const supportedMimeTypes =
-    new Set([
-      "image/jpeg",
-      "image/png",
-    ]);
+export function supportsSynchronousOcr(attachment) {
+  const supportedMimeTypes = new Set(["image/jpeg", "image/png"]);
 
-  return supportedMimeTypes.has(
-    attachment.mimeType,
-  );
+  return supportedMimeTypes.has(attachment.mimeType);
 }

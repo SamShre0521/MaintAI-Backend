@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import connectDB from "./config/db.js";
 import chatRoutes from "./routes/chat.routes.js";
@@ -13,7 +14,6 @@ import cors from "cors";
 import attachmentRoutes from "./routes/attachment.routes.js";
 const app = express();
 
-
 app.use(
   cors({
     origin: [
@@ -27,10 +27,14 @@ app.use(
 );
 
 app.use(express.json());
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 const PORT = process.env.PORT || 3000;
 
 // Connect database
-connectDB();
+await connectDB();
 
 // Health route
 app.get("/", (req, res) => {
@@ -51,7 +55,13 @@ app.use("/api", knowledgeBaseRoutes);
 app.use("/api", machineRoutes);
 app.use("/api", deviceTokenRoutes);
 app.use("/api", notificationRoutes);
-app.use(
-  "/api/attachments",
-  attachmentRoutes,
-);
+app.use("/api/attachments", attachmentRoutes);
+
+app.use((error, req, res, next) => {
+  if (error.name === "MulterError" || error.message?.startsWith("Only PDF"))
+    return res.status(400).json({ error: error.message });
+  if (error.name === "CastError" || error.name === "ValidationError")
+    return res.status(400).json({ error: "Invalid request data" });
+  console.error(error);
+  res.status(500).json({ error: "Something went wrong" });
+});

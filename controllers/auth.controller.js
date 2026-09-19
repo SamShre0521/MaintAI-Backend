@@ -10,7 +10,7 @@ const generateToken = (user) => {
       role: user.role,
     },
     process.env.JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: "7d" },
   );
 };
 
@@ -24,7 +24,9 @@ export const signup = async (req, res) => {
         .json({ error: "Name, email, password and department are required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      email: typeof email === "string" ? email.trim().toLowerCase() : "",
+    });
 
     if (existingUser) {
       return res.status(400).json({ error: "User already exists" });
@@ -37,7 +39,7 @@ export const signup = async (req, res) => {
       email,
       password: hashedPassword,
       role: role || "engineer",
-      department
+      department,
     });
 
     const token = generateToken(user);
@@ -50,7 +52,7 @@ export const signup = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        department: user.department
+        department: user.department,
       },
     });
   } catch (error) {
@@ -63,22 +65,39 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Email and password are required" });
+    if (
+      typeof email !== "string" ||
+      !email.trim() ||
+      typeof password !== "string" ||
+      !password
+    ) {
+      return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: typeof email === "string" ? email.trim().toLowerCase() : "",
+    });
 
     if (!user) {
-      return res.status(400).json({ error: "Invalid credentials" });
+      return res
+        .status(400)
+        .json({
+          error:
+            "Email or password is incorrect. Please check both and try again.",
+          code: "INVALID_CREDENTIALS",
+        });
     }
 
     const isPasswordMatch = await bcrypt.compare(password, user.password);
 
     if (!isPasswordMatch) {
-      return res.status(400).json({ error: "Invalid credentials" });
+      return res
+        .status(400)
+        .json({
+          error:
+            "Email or password is incorrect. Please check both and try again.",
+          code: "INVALID_CREDENTIALS",
+        });
     }
 
     const token = generateToken(user);
@@ -92,7 +111,7 @@ export const login = async (req, res) => {
         email: user.email,
         role: user.role,
         department: user.department,
-        companyId: user.companyId
+        companyId: user.companyId,
       },
     });
   } catch (error) {

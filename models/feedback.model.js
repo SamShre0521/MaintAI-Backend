@@ -11,6 +11,11 @@ const feedbackSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    machineId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Machine",
+      index: true,
+    },
     question: {
       type: String,
       required: true,
@@ -44,73 +49,78 @@ const feedbackSchema = new mongoose.Schema(
       default: null,
     },
     revisionNumber: {
-  type: Number,
-  default: 1,
-},
+      type: Number,
+      default: 1,
+    },
 
-resubmittedAt: {
-  type: Date,
-  default: null,
-},
-companyId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Company",
-  required: true,
-  index: true,
-},
-conversation: [
-  {
-    role: {
-      type: String,
-      enum: ["user", "assistant"],
-      required: true,
-    },
-    content: {
-      type: String,
-      required: true,
-    },
-    createdAt: {
+    resubmittedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
     },
-  },
-],
-
-revisionHistory: [
-  {
-    question: {
-      type: String,
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
       required: true,
+      index: true,
     },
+    conversation: [
+      {
+        role: {
+          type: String,
+          enum: ["user", "assistant"],
+          required: true,
+        },
+        content: {
+          type: String,
+          required: true,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
 
-    answer: {
-      type: String,
-      required: true,
-    },
+    revisionHistory: [
+      {
+        question: {
+          type: String,
+          required: true,
+        },
 
-    managerStatus: {
-      type: String,
-      enum: ["pending", "approved", "rejected"],
-      required: true,
-    },
+        answer: {
+          type: String,
+          required: true,
+        },
 
-    managerComment: {
-      type: String,
-      default: "",
-    },
+        managerStatus: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+          required: true,
+        },
 
-    revisedAt: {
-      type: Date,
-      default: Date.now,
-    },
+        managerComment: {
+          type: String,
+          default: "",
+        },
+
+        revisedAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
-  
-],
-  },
-  { timestamps: true },
+  { timestamps: true, optimisticConcurrency: true },
 );
+
+feedbackSchema.index({
+  companyId: 1,
+  department: 1,
+  managerStatus: 1,
+  updatedAt: -1,
+});
 
 const Feedback = mongoose.model("Feedback", feedbackSchema);
 
 export default Feedback;
-

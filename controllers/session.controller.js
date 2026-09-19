@@ -22,14 +22,18 @@ export const getSessionMessages = async (req, res) => {
       sessionId,
       userId: req.user._id,
       companyId: req.user.companyId,
-
     });
 
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
 
-    const messages = await Message.find({ sessionId }).sort({ createdAt: 1 });
+    const messages = await Message.find({ sessionId })
+      .sort({ createdAt: 1 })
+      .populate(
+        "attachments",
+        "originalName mimeType size attachmentType processingStatus processingError pageCount createdAt",
+      );
 
     res.json({ messages });
   } catch (error) {
@@ -50,7 +54,7 @@ export const renameSession = async (req, res) => {
     const updatedSession = await Session.findOneAndUpdate(
       { sessionId, userId: req.user._id },
       { title: title.trim() },
-      { returnDocument: "after" }
+      { returnDocument: "after" },
     );
 
     if (!updatedSession) {
@@ -75,7 +79,6 @@ export const deleteSession = async (req, res) => {
       sessionId,
       userId: req.user._id,
       companyId: req.user.companyId,
-
     });
 
     if (!session) {

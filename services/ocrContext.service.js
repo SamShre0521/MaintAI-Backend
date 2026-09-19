@@ -1,70 +1,64 @@
 import { selectRelevantOcrText } from "../utils/textChunks.util.js";
 
-export function buildRelevantAttachmentContext({
-  query,
-  attachments,
-}) {
-  if (
-    !Array.isArray(attachments) ||
-    attachments.length === 0
-  ) {
-    return {
-      context: "",
-      sources: [],
-    };
-  }
-
-  const sourceContexts = [];
-  const sources = [];
-
+export function buildRelevantAttachmentContext({ query, attachments = [] }) {
+  const matches = [];
   for (const attachment of attachments) {
     if (
-      attachment.processingStatus !==
-        "completed" ||
+      attachment.processingStatus !== "completed" ||
       !attachment.extractedText?.trim()
-    ) {
+    )
       continue;
+    const pages = attachment.ocrPages?.length
+      ? attachment.ocrPages
+      : [{ pageNumber: null, text: attachment.extractedText }];
+    for (const page of pages) {
+      const selected = selectRelevantOcrText({
+        query,
+        text: page.text,
+        maxChunks: 2,
+      });
+      if (!selected.text.trim()) continue;
+      matches.push({
+        attachment,
+        page,
+        selected,
+        score: Math.max(...selected.chunks.map((chunk) => chunk.score), 0),
+      });
     }
-
-    const selected = selectRelevantOcrText({
-      query,
-      text: attachment.extractedText,
-      maxChunks: 1,
-    });
-
-    if (!selected.text.trim()) {
-      continue;
-    }
-
-    sourceContexts.push(
-      `CURRENT UPLOADED ATTACHMENT
-File: ${attachment.originalName}
-MIME type: ${attachment.mimeType}
-
-Most relevant OCR sections:
-${selected.text}`,
-    );
-
-    sources.push({
-      attachmentId:
-        attachment._id.toString(),
-      fileName: attachment.originalName,
-      selectedChunks: selected.chunks.map(
-        (chunk) => ({
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          score: Number(
-            chunk.score.toFixed(2),
-          ),
-          matchedTokens:
-            chunk.matchedTokens,
-        }),
-      ),
-    });
   }
-
+  const selected = matches
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 6);
   return {
-    context: sourceContexts.join("\n\n"),
-    sources,
+    context: selected
+      .map(
+        ({ attachment, page, selected }) =>
+          `Uploaded document: ${attachment.originalName}\n${pageLabel(attachment, page.pageNumber)}\n${selected.text}`,
+      )
+      .join("\n\n"),
+    sources: selected.map(({ attachment, page, selected }) => ({
+      attachmentId: attachment._id.toString(),
+      fileName: attachment.originalName,
+      pageNumber: isPaginated(attachment) ? page.pageNumber : null,
+      sectionNumber: isPaginated(attachment) ? null : page.pageNumber,
+      uploadedAt: attachment.createdAt,
+      selectedChunks: selected.chunks.map(({ startLine, endLine, score }) => ({
+        startLine,
+        endLine,
+        score,
+      })),
+    })),
   };
+}
+function isPaginated(attachment) {
+  return (
+    attachment.mimeType === "application/pdf" ||
+    attachment.mimeType.startsWith("image/")
+  );
+}
+function pageLabel(attachment, number) {
+  return number
+    ? `${isPaginated(attachment) ? "Page" : "Section"}: ${number}`
+    : "Page unavailable";
 }

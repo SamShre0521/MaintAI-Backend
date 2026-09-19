@@ -1,10 +1,7 @@
 import ChatAttachment from "../models/chatAttachment.model.js";
 import { extractSinglePageText } from "./ocr.service.js";
 
-export async function processAttachmentWithOcr({
-  attachmentId,
-  companyId,
-}) {
+export async function processAttachmentWithOcr({ attachmentId, companyId }) {
   const attachment = await ChatAttachment.findOne({
     _id: attachmentId,
     companyId,
@@ -37,6 +34,8 @@ export async function processAttachmentWithOcr({
       key: attachment.s3Key,
     });
 
+    if (!result.extractedText?.trim())
+      throw new Error("No readable text found in image");
     return await ChatAttachment.findOneAndUpdate(
       {
         _id: attachment._id,
@@ -45,6 +44,10 @@ export async function processAttachmentWithOcr({
       {
         $set: {
           extractedText: result.extractedText,
+          ocrPages: [{ pageNumber: 1, text: result.extractedText }],
+          pageCount: 1,
+          ocrMode: "synchronous",
+          ocrCompletedAt: new Date(),
           processingStatus: "completed",
           processingError: "",
         },
@@ -62,8 +65,7 @@ export async function processAttachmentWithOcr({
       {
         $set: {
           processingStatus: "failed",
-          processingError:
-              error.message || "OCR processing failed",
+          processingError: error.message || "OCR processing failed",
         },
       },
     );

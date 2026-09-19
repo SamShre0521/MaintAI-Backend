@@ -1,4 +1,3 @@
-import admin from "../config/firebaseAdmin.js";
 import User from "../models/user.model.js";
 import { getMessaging } from "firebase-admin/messaging";
 import firebaseAdminApp from "../config/firebaseAdmin.js";
@@ -41,21 +40,31 @@ export const sendPushNotificationToUser = async ({
   );
 
   const messaging = getMessaging(firebaseAdminApp);
-  const response = await messaging.sendEachForMulticast({
-    tokens,
-    notification: {
-      title,
-      body,
-    },
-    data: stringData,
-    android: {
-      priority: "high",
-      notification: {
-        channelId: "maintai_alerts",
-        sound: "default",
-      },
-    },
-  });
+  const responses = [];
+  for (let start = 0; start < tokens.length; start += 500) {
+    responses.push(
+      await messaging.sendEachForMulticast({
+        tokens: tokens.slice(start, start + 500),
+        notification: {
+          title,
+          body,
+        },
+        data: stringData,
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "maintai_alerts",
+            sound: "default",
+          },
+        },
+      }),
+    );
+  }
+  const response = {
+    responses: responses.flatMap((item) => item.responses),
+    successCount: responses.reduce((sum, item) => sum + item.successCount, 0),
+    failureCount: responses.reduce((sum, item) => sum + item.failureCount, 0),
+  };
 
   const invalidTokens = [];
 

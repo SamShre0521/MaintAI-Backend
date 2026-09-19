@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --experimental-test-module-mocks --test tests/*.test.js",
     "dev": "nodemon index.js"
   },
   "keywords": [],
@@ -22,11 +22,15 @@
     "express": "^5.2.1",
     "firebase-admin": "^14.1.0",
     "jsonwebtoken": "^9.0.3",
+    "mammoth": "^1.12.3",
     "mongoose": "^9.4.1",
     "multer": "^2.2.0",
+    "nodemailer": "^10.0.10",
     "openai": "^6.33.0",
     "pdf-parse": "^2.4.5",
+    "sharp": "^0.35.4",
     "uuid": "^13.0.0",
+    "word-extractor": "^1.0.4",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

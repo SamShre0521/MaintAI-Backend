@@ -49,6 +49,9 @@ export const addMachine = async (req, res) => {
      * chunking, embeddings and Pinecone ingestion.
      */
     if (req.files?.length > 0) {
+      req.files.forEach((file, index) => {
+        file.machineFileId = machine.files[index]._id;
+      });
       setImmediate(() => {
         processMachineFiles({
           machineId: machine._id,
@@ -92,10 +95,7 @@ export const getMachines = async (req, res) => {
       companyId: req.user.companyId,
       department: req.user.department,
     })
-      .populate(
-        "addedBy",
-        "name email role department",
-      )
+      .populate("addedBy", "name email role department")
       .sort({ createdAt: -1 });
 
     return res.json({
@@ -124,10 +124,7 @@ export const getMachineById = async (req, res) => {
       _id: id,
       department: req.user.department,
       companyId: req.user.companyId,
-    }).populate(
-      "addedBy",
-      "name email role department",
-    );
+    }).populate("addedBy", "name email role department");
 
     if (!machine) {
       return res.status(404).json({
@@ -183,5 +180,55 @@ export const deleteMachine = async (req, res) => {
     return res.status(500).json({
       error: "Something went wrong",
     });
+  }
+};
+
+export const addMachineDocuments = async (req, res) => {
+  try {
+    if (!req.files?.length)
+      return res
+        .status(400)
+        .json({ error: "At least one document is required" });
+    const machine = await Machine.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        companyId: req.user.companyId,
+        department: req.user.department,
+      },
+      {
+        $push: {
+          files: {
+            $each: req.files.map((file) => ({
+              originalName: file.originalname,
+              mimeType: file.mimetype,
+              size: file.size,
+              processingStatus: "pending",
+            })),
+          },
+        },
+      },
+      { returnDocument: "after" },
+    );
+    if (!machine) return res.status(404).json({ error: "Machine not found" });
+    req.files.forEach((file, index) => {
+      file.machineFileId =
+        machine.files[machine.files.length - req.files.length + index]._id;
+    });
+    setImmediate(() =>
+      processMachineFiles({
+        machineId: machine._id,
+        companyId: req.user.companyId,
+        uploadedBy: req.user._id,
+        files: req.files,
+      }).catch((error) =>
+        console.error("Document processing failed:", error.message),
+      ),
+    );
+    return res
+      .status(202)
+      .json({ message: "Document processing started", machine });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Could not upload documents" });
   }
 };

@@ -40,7 +40,7 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     attachmentType: {
       type: String,
-      enum: ["image", "pdf", "spreadsheet", "text", "unknown"],
+      enum: ["image", "pdf", "spreadsheet", "text", "document", "unknown"],
       required: true,
     },
 
@@ -83,7 +83,13 @@ const chatAttachmentSchema = new mongoose.Schema(
 
     knowledgeStatus: {
       type: String,
-      enum: ["temporary", "pending_approval", "approved", "rejected","permanent"],
+      enum: [
+        "temporary",
+        "pending_approval",
+        "approved",
+        "rejected",
+        "permanent",
+      ],
       default: "temporary",
     },
     messageId: {

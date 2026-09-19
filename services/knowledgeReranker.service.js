@@ -4,16 +4,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export async function rerankKnowledge({
-  query,
-  candidates,
-  maxResults = 3,
-}) {
-  if (
-    !query?.trim() ||
-    !Array.isArray(candidates) ||
-    candidates.length === 0
-  ) {
+export async function rerankKnowledge({ query, candidates, maxResults = 3 }) {
+  if (!query?.trim() || !Array.isArray(candidates) || candidates.length === 0) {
     return [];
   }
 
@@ -48,14 +40,13 @@ ${candidate.answer || ""}
     .join("\n\n");
 
   try {
-    const response =
-      await openai.responses.create({
-        model: "gpt-4.1-mini",
+    const response = await openai.responses.create({
+      model: "gpt-4.1-mini",
 
-        input: [
-          {
-            role: "system",
-            content: `
+      input: [
+        {
+          role: "system",
+          content: `
 You are a retrieval reranker for an industrial-machine knowledge base.
 
 Your job is NOT to answer the user's question.
@@ -109,11 +100,11 @@ If none of the candidates answer or materially help answer the query:
   "indexes": []
 }
 `,
-          },
+        },
 
-          {
-            role: "user",
-            content: `
+        {
+          role: "user",
+          content: `
 USER QUESTION:
 
 ${query}
@@ -122,12 +113,11 @@ RETRIEVED CANDIDATES:
 
 ${candidateText}
 `,
-          },
-        ],
-      });
+        },
+      ],
+    });
 
-    const raw =
-      response.output_text?.trim();
+    const raw = response.output_text?.trim();
 
     if (!raw) {
       return [];
@@ -148,22 +138,16 @@ ${candidateText}
     return parsed.indexes
       .filter(
         (index) =>
-          Number.isInteger(index) &&
-          index >= 0 &&
-          index < candidates.length,
+          Number.isInteger(index) && index >= 0 && index < candidates.length,
       )
       .slice(0, maxResults)
       .map((index) => candidates[index]);
   } catch (error) {
-    console.error(
-      "Knowledge reranking failed:",
-      error,
-    );
+    console.error("Knowledge reranking failed:", error);
 
     /*
-     * Safe fallback:
-     * return the highest vector matches.
+     * Fail closed: unverified candidates must not be presented as relevant evidence.
      */
-    return candidates.slice(0, maxResults);
+    return [];
   }
 }

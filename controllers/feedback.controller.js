@@ -1,3 +1,5 @@
+import Session from "../models/session.model.js";
+import { validSolutionText } from "../utils/solutionValidation.util.js";
 import Feedback from "../models/feedback.model.js";
 import User from "../models/user.model.js";
 import Notification from "../models/notification.model.js";
@@ -7,16 +9,29 @@ export const submitFeedback = async (req, res) => {
     req.body;
 
   try {
-    if (!sessionId || !question || !answer || !engineerFeedback) {
+    if (
+      typeof sessionId !== "string" ||
+      !sessionId.trim() ||
+      !validSolutionText(question) ||
+      !validSolutionText(answer) ||
+      !["correct", "not_helpful"].includes(engineerFeedback)
+    ) {
       return res.status(400).json({
         error: "sessionId, question, answer and engineerFeedback are required",
       });
     }
+    const session = await Session.findOne({
+      sessionId,
+      userId: req.user._id,
+      companyId: req.user.companyId,
+    });
+    if (!session) return res.status(404).json({ error: "Session not found" });
     //validate conversation array
     const safeConversation = Array.isArray(conversation)
       ? conversation
           .filter(
             (message) =>
+              message &&
               ["user", "assistant"].includes(message.role) &&
               typeof message.content === "string" &&
               message.content.trim(),
@@ -24,17 +39,19 @@ export const submitFeedback = async (req, res) => {
           .map((message) => ({
             role: message.role,
             content: message.content.trim(),
-            createdAt: message.createdAt
-              ? new Date(message.createdAt)
-              : new Date(),
+            createdAt:
+              message.createdAt && !Number.isNaN(Date.parse(message.createdAt))
+                ? new Date(message.createdAt)
+                : new Date(),
           }))
       : [];
 
     const feedback = await Feedback.create({
       sessionId,
       userId: req.user._id,
-      question,
-      answer,
+      machineId: session.machineId,
+      question: question.trim(),
+      answer: answer.trim(),
       engineerFeedback,
       department: req.user.department,
       companyId: req.user.companyId,
@@ -91,7 +108,7 @@ export const resubmitFeedback = async (req, res) => {
     const { id } = req.params;
     const { question, answer } = req.body;
 
-    if (!question?.trim() || !answer?.trim()) {
+    if (!validSolutionText(question) || !validSolutionText(answer)) {
       return res.status(400).json({
         error: "question and answer are required",
       });
@@ -101,7 +118,6 @@ export const resubmitFeedback = async (req, res) => {
       _id: id,
       userId: req.user._id,
       companyId: req.user.companyId,
-
     });
 
     if (!feedback) {
@@ -132,6 +148,11 @@ export const resubmitFeedback = async (req, res) => {
     feedback.revisionNumber = (feedback.revisionNumber || 1) + 1;
     feedback.resubmittedAt = new Date();
 
+    if (req.body.engineerFeedback !== undefined) {
+      if (!["correct", "not_helpful"].includes(req.body.engineerFeedback))
+        return res.status(400).json({ error: "Invalid engineerFeedback" });
+      feedback.engineerFeedback = req.body.engineerFeedback;
+    }
     await feedback.save();
     // resbmitting feedback notification to the manager
 
@@ -175,6 +196,12 @@ export const resubmitFeedback = async (req, res) => {
       feedback,
     });
   } catch (error) {
+    if (error.name === "VersionError")
+      return res
+        .status(409)
+        .json({
+          error: "This submission was updated. Reload before resubmitting.",
+        });
     console.error("Resubmit feedback error:", error);
 
     return res.status(500).json({
@@ -197,12 +224,8 @@ export const getMyFeedbackBySession = async (req, res) => {
       sessionId,
       userId: req.user._id,
       companyId: req.user.companyId,
-
     })
-      .populate(
-        "approvedBy",
-        "name email role department",
-      )
+      .populate("approvedBy", "name email role department")
       .sort({ updatedAt: -1 });
 
     if (!feedback) {
@@ -217,10 +240,7 @@ export const getMyFeedbackBySession = async (req, res) => {
       feedback,
     });
   } catch (error) {
-    console.error(
-      "Get feedback by session error:",
-      error,
-    );
+    console.error("Get feedback by session error:", error);
 
     return res.status(500).json({
       error: "Failed to load feedback details",
