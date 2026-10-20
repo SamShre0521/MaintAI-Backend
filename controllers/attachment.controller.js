@@ -463,6 +463,13 @@ export const ingestManualKnowledge = async (req, res) => {
       });
     }
 
+    // Employee submissions must go through the review endpoint to preserve the audit trail.
+    if (attachment.knowledgeStatus !== "permanent" &&
+        (attachment.knowledgeStatus !== "temporary" ||
+         attachment.uploadedBy.toString() !== req.user._id.toString())) {
+      return res.status(409).json({ error: "Submit and review this document through the document approval workflow" });
+    }
+
     if (attachment.processingStatus !== "completed") {
       return res.status(400).json({
         error: "OCR must be completed before manual ingestion",

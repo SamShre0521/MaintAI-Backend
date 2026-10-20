@@ -39,6 +39,7 @@ export async function saveUploadedAttachments({
         sessionId,
         uploadedBy,
 
+        documentTitle: file.originalname,
         originalName: file.originalname,
         mimeType: file.mimetype,
         attachmentType: getAttachmentType(file),

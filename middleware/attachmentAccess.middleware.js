@@ -18,7 +18,7 @@ export async function attachmentAccess(req, res, next) {
     });
     const owns = attachment.uploadedBy.toString() === req.user._id.toString();
     const shared =
-      !attachment.sessionId && attachment.knowledgeStatus === "permanent";
+      attachment.knowledgeStatus === "permanent";
     if (!machine || (!owns && req.user.role !== "manager" && !shared))
       return res.status(404).json({ error: "Attachment not found" });
     if (req.method !== "GET" && !owns && req.user.role !== "manager")

@@ -28,6 +28,12 @@ const chatAttachmentSchema = new mongoose.Schema(
       required: true,
     },
 
+    documentTitle: { type: String, trim: true, default: "" },
+    submittedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewComment: { type: String, default: "" },
+
     originalName: {
       type: String,
       required: true,

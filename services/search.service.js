@@ -101,6 +101,7 @@ export const searchVectorDB = async (query, machineId, companyId) => {
       const doc = byId.get(match.metadata.attachmentId);
       return {
         ...match.metadata,
+        fileName: doc.documentTitle || doc.originalName,
         id: match.id,
         score: match.score,
         uploadedBy: doc.uploadedBy?._id?.toString(),

@@ -100,3 +100,14 @@ test("reranker failures do not promote unrelated vector matches", async () => {
     [],
   );
 });
+
+test("repeated web question includes earlier external answers and asks for supported alternatives", async () => {
+  calls.length = 0;
+  outputs = [web];
+  await generateResponse(messages, "", {
+    machineName: "Press", searchQuery: "E42 alarm",
+    previousWebAnswers: ["Earlier external answer: check the fuse."],
+  });
+  assert.match(calls[0].input[1].content, /Earlier external answer: check the fuse/);
+  assert.match(calls[0].input[0].content, /Never invent alternatives/);
+});

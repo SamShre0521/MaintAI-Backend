@@ -7,10 +7,12 @@ import Machine from "../models/machine.model.js";
 import ChatAttachment from "../models/chatAttachment.model.js";
 let savedUploads = [];
 let generatedMessages;
+let generationOptions;
 let currentKnowledge = [];
 mock.module("../services/openai.service.js", {
   namedExports: {
-    generateResponse: async (messages) => {
+    generateResponse: async (messages, context, options) => {
+      generationOptions = options;
       generatedMessages = messages;
       return {
         reply: "Use the new fuse",
@@ -222,4 +224,22 @@ test("switching machine within an existing conversation is rejected", async (t) 
   );
   assert.equal(res.statusCode, 400);
   assert.match(res.body.error, /new chat/);
+});
+
+
+test("repeated questions pass only matching external answers to web fallback", async (t) => {
+  savedUploads = [];
+  currentKnowledge = [];
+  setup(t, { history: [
+    { role: "user", content: "E42 alarm" },
+    { role: "assistant", sourceType: "internal_knowledge", content: "Private company fix" },
+    { role: "user", content: "Different question" },
+    { role: "assistant", sourceType: "web", content: "Unrelated web answer" },
+    { role: "user", content: "  E42   ALARM " },
+    { role: "assistant", sourceType: "web", content: "Previous external fuse check" },
+  ] });
+  const res = response();
+  await chatHandler({ user, body: { sessionId: "session", message: "E42 alarm" }, files: [] }, res);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(generationOptions.previousWebAnswers, ["Previous external fuse check"]);
 });

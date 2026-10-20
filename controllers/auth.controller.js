@@ -1,3 +1,6 @@
+import { createHash, randomBytes } from "node:crypto";
+import Invitation from "../models/signupInvitation.model.js";
+import Company from "../models/company.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
@@ -14,50 +17,69 @@ const generateToken = (user) => {
   );
 };
 
-export const signup = async (req, res) => {
-  const { name, email, password, role, department } = req.body;
-
+// Managers choose the company, department and role. Signup cannot override them.
+export const createSignupInvitation = async (req, res) => {
   try {
-    if (!name || !email || !password || !department) {
-      return res
-        .status(400)
-        .json({ error: "Name, email, password and department are required" });
+    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const role = req.body.role || "engineer";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !["engineer", "manager"].includes(role)) {
+      return res.status(400).json({ error: "A valid email and role (engineer or manager) are required" });
     }
-
-    const existingUser = await User.findOne({
-      email: typeof email === "string" ? email.trim().toLowerCase() : "",
+    if (await User.exists({ email })) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+    const invitationToken = randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await Invitation.create({
+      tokenHash: createHash("sha256").update(invitationToken).digest("hex"),
+      email, role, expiresAt,
+      companyId: req.user.companyId,
+      department: req.user.department,
+      invitedBy: req.user._id,
     });
+    return res.status(201).json({ invitationToken, email, role, expiresAt });
+  } catch (error) {
+    console.error("Invitation error:", error.message);
+    return res.status(500).json({ error: "Could not create invitation" });
+  }
+};
 
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists" });
+export const signup = async (req, res) => {
+  try {
+    const { name, email, password, invitationToken } = req.body;
+    if (typeof name !== "string" || !name.trim() || typeof email !== "string" ||
+        typeof password !== "string" || password.length < 8 ||
+        typeof invitationToken !== "string" || !/^[a-f0-9]{64}$/.test(invitationToken)) {
+      return res.status(400).json({ error: "Name, email, password (at least 8 characters) and invitationToken are required" });
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
+    const normalizedEmail = email.trim().toLowerCase();
+    const tokenHash = createHash("sha256").update(invitationToken).digest("hex");
+    const invitation = await Invitation.findOne({ tokenHash, email: normalizedEmail, expiresAt: { $gt: new Date() } });
+    if (!invitation) return res.status(400).json({ error: "Invitation is invalid or expired" });
+    if (!(await Company.exists({ _id: invitation.companyId, isActive: true }))) {
+      return res.status(403).json({ error: "Company is unavailable" });
+    }
+    if (await User.exists({ email: normalizedEmail })) {
+      return res.status(409).json({ error: "User already exists" });
+    }
+    // A unique email prevents two simultaneous requests from creating two accounts.
     const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: role || "engineer",
-      department,
+      name: name.trim(), email: normalizedEmail,
+      password: await bcrypt.hash(password, 10),
+      companyId: invitation.companyId,
+      department: invitation.department,
+      role: invitation.role,
     });
-
-    const token = generateToken(user);
-
-    res.status(201).json({
-      message: "User created successfully",
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        department: user.department,
-      },
+    await Invitation.deleteMany({ email: normalizedEmail });
+    return res.status(201).json({
+      message: "User created successfully", token: generateToken(user),
+      user: { id: user._id, name: user.name, email: user.email, role: user.role,
+        department: user.department, companyId: user.companyId },
     });
   } catch (error) {
-    console.error("Signup error:", error);
-    res.status(500).json({ error: "Something went wrong" });
+    if (error.code === 11000) return res.status(409).json({ error: "User already exists" });
+    console.error("Signup error:", error.message);
+    return res.status(500).json({ error: "Could not create account" });
   }
 };
 

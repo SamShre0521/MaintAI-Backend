@@ -40,7 +40,7 @@ export function buildManualChunks({
 
           attachmentId: attachment._id.toString(),
 
-          fileName: attachment.originalName,
+          fileName: attachment.documentTitle || attachment.originalName,
 
           pageNumber:
             attachment.mimeType === "application/pdf" ||

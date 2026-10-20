@@ -93,6 +93,13 @@ export const chatHandler = async (req, res) => {
             .limit(20)
         ).reverse()
       : [];
+    // Match earlier questions in this machine's chat, ignoring case and extra spaces.
+    const normalizeQuestion = (text = "") => text.trim().toLowerCase().replace(/\s+/g, " ");
+    const previousWebAnswers = history.filter((item, index) =>
+      item.role === "assistant" && item.sourceType === "web" &&
+      history[index - 1]?.role === "user" &&
+      normalizeQuestion(history[index - 1].content) === normalizeQuestion(cleanMessage)
+    ).slice(-3).map((item) => item.content.slice(0, 4000));
     const conversation = history
       .slice(-6)
       .map(({ role, content }) => ({ role, content }));
@@ -276,7 +283,7 @@ export const chatHandler = async (req, res) => {
       result = await generateResponse(
         [...conversation, { role: "user", content: cleanMessage }],
         [internalContext, attachmentContext].filter(Boolean).join("\n\n"),
-        { searchQuery: retrievalQuery, machineName: machine.machineName },
+        { searchQuery: retrievalQuery, machineName: machine.machineName, previousWebAnswers },
       );
     }
     const usedKnowledge = result.usedContext && knowledge.length > 0;

@@ -1,3 +1,4 @@
+import { listDocuments, submitDocument, reviewDocument } from "../controllers/documentReview.controller.js";
 import express from "express";
 import { protect, authorizeRoles } from "../middleware/auth.middleware.js";
 import { uploadAttachments } from "../middleware/upload.middleware.js";
@@ -12,6 +13,9 @@ import {
 } from "../controllers/attachment.controller.js";
 import { attachmentAccess } from "../middleware/attachmentAccess.middleware.js";
 const router = express.Router();
+router.get("/", protect, listDocuments);
+router.post("/:id/submit", protect, attachmentAccess, submitDocument);
+router.post("/:id/review", protect, authorizeRoles("manager"), attachmentAccess, reviewDocument);
 router.post(
   "/test-upload",
   protect,
